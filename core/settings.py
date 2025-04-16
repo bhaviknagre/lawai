@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'rest_framework.authtoken',
+    'drf_yasg',
 ]
 
 MIDDLEWARE = [
@@ -83,8 +84,12 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'HOST' : 'aws-0-us-east-2.pooler.supabase.com',
+        'NAME': 'postgres',
+        'USER' : 'postgres.dqfmybhogbuohfginytw',
+        'PASSWORD' : '@Aman1111$',
+        'PORT' : '5432'
     }
 }
 
