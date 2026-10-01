@@ -1,0 +1,69 @@
+# Local dev:       docker compose up -d db          (then npm run dev on the host)
+# Full stack:      docker compose up -d db && docker compose --profile tools run --rm setup \
+#                  && docker compose --profile tools run --rm ai-index && docker compose up -d ai app
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lawai
+      POSTGRES_PASSWORD: lawai
+      POSTGRES_DB: lawai
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lawai -d lawai"]
+      interval: 5s
+      retries: 10
+
+  # One-off: create extensions + schema, load demo data, ingest documents.
+  setup:
+    build: { context: ., target: tools }
+    profiles: [tools]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://lawai:lawai@db:5432/lawai
+      STORAGE_DIR: /app/storage
+    volumes: [storage:/app/storage]
+    depends_on: { db: { condition: service_healthy } }
+
+  # One-off: chunk + embed every pending document and the legal library (Python).
+  ai-index:
+    build: { context: ./ai }
+    profiles: [tools]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://lawai:lawai@db:5432/lawai
+      STORAGE_DIR: /storage
+    volumes: [storage:/storage]
+    command: ["uv", "run", "--no-sync", "python", "-m", "lawai_ai.cli", "index"]
+    depends_on: { db: { condition: service_healthy } }
+
+  # Python AI service: RAG, agent, review, drafting, research. Internal only (no published port).
+  ai:
+    build: { context: ./ai }
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://lawai:lawai@db:5432/lawai
+      STORAGE_DIR: /storage
+    volumes: [storage:/storage]
+    depends_on: { db: { condition: service_healthy } }
+
+  app:
+    build: { context: ., target: runner }
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://lawai:lawai@db:5432/lawai
+      STORAGE_DIR: /app/storage
+      AI_SERVICE_URL: http://ai:8000
+    ports: ["3000:3000"]
+    volumes: [storage:/app/storage]
+    depends_on:
+      db: { condition: service_healthy }
+      ai: { condition: service_started }
+
+volumes:
+  pgdata:
+  storage:
