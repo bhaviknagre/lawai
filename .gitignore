@@ -1,2 +1,15 @@
-venv
+node_modules
+.next
+out
+storage
 .env
+.env.local
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store
+ai/.venv
+__pycache__
+.pytest_cache
+.vercel
+.env*
+CLAUDE.md
