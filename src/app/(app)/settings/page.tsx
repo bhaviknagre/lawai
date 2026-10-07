@@ -5,6 +5,7 @@ import { firms, playbookRules } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { getFirmUsers, getJurisdictions } from "@/lib/queries/common";
 import { aiStatus } from "@/lib/ai-service";
+import { storageLabel } from "@/lib/storage";
 import { ROLE_LABELS } from "@/lib/accounts";
 import { ActionForm } from "@/components/forms";
 import { Avatar, Field, PageHeader, Pill } from "@/components/ui";
@@ -50,7 +51,7 @@ export default async function SettingsPage() {
             <li className="flex justify-between"><span>LLM (chat, review, drafting)</span>{ai.ai ? <Pill tone="good">{ai.provider === "groq" ? "Groq" : "Claude"} · {ai.models.chat}</Pill> : <Pill tone="bad">Add an LLM API key</Pill>}</li>
             <li className="flex justify-between"><span>Semantic search embeddings</span>{ai.embeddings !== "none" ? <Pill tone="good">{ai.embeddings}</Pill> : <Pill tone="mid">Keyword only · add VOYAGE_API_KEY</Pill>}</li>
             <li className="flex justify-between"><span>Contextual retrieval</span>{ai.contextual ? <Pill tone="good">On · {ai.models.fast}</Pill> : <Pill tone="neutral">Off</Pill>}</li>
-            <li className="flex justify-between"><span>File storage</span><Pill>{process.env.S3_BUCKET ? `S3 · ${process.env.S3_BUCKET}` : "Local disk"}</Pill></li>
+            <li className="flex justify-between"><span>File storage</span><Pill>{storageLabel()}</Pill></li>
           </ul>
           {!can(user, "team.manage") && (
             <>

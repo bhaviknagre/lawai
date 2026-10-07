@@ -59,6 +59,14 @@ export const firms = pgTable("firms", {
   /** Set by a LawAI operator (e.g. unpaid invoice). Nobody in the firm can sign in until it's cleared; data is kept. */
   suspendedAt: timestamp("suspended_at", { withTimezone: true }),
   suspendedReason: text("suspended_reason"),
+  /** Commercial terms, set by a LawAI operator on /platform. See src/lib/subscriptions.ts. */
+  plan: text("plan").$type<"trial" | "starter" | "professional" | "enterprise">().notNull().default("trial"),
+  /** Most active + invited people the firm pays for. Null = unlimited. */
+  seatLimit: integer("seat_limit"),
+  /** Monthly fee in whole currency units (BILLING_CURRENCY). */
+  monthlyFee: integer("monthly_fee").notNull().default(0),
+  /** When the current trial or paid term ends. Null = no end date. Nothing is blocked automatically. */
+  subscriptionEndsAt: timestamp("subscription_ends_at", { withTimezone: true }),
   createdAt: createdAt(),
 });
 

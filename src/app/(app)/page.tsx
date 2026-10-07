@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { format } from "date-fns";
 import { AlertTriangle, Briefcase, Clock, FileUp, Plus, Send, Sparkles, Users, Gavel, CalendarClock, FileText, CheckSquare } from "lucide-react";
+import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { can, DOC_STATUSES_FOR } from "@/lib/permissions";
 import { getDashboard } from "@/lib/queries/dashboard";
@@ -24,6 +25,7 @@ const PROMPTS = ["When is my next hearing?", "What's due this week?", "What does
 
 export default async function Dashboard() {
   const user = await requireUser();
+  if (user.isPlatformAdmin) redirect("/platform");
   const [d, J] = await Promise.all([getDashboard(user), jurisdictionMap()]);
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";

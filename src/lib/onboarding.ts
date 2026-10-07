@@ -1,9 +1,11 @@
 import "server-only";
 import { and, asc, desc, eq, inArray, like, sql } from "drizzle-orm";
+import { addMonths } from "date-fns";
 import { z } from "zod";
 import { db } from "@/db";
 import { firms, sessions, users } from "@/db/schema";
 import { createAccount, deliverLink, emailTaken, personSchema, slugify } from "./accounts";
+import { defaultSubscription, subscriptionSchema, type SubscriptionInput } from "./subscriptions";
 
 /**
  * Firm onboarding, shared by the /platform console and the /api/platform endpoints
@@ -16,6 +18,8 @@ export const onboardSchema = z.object({
     jurisdictions: z.array(z.string().trim()).default([]),
   }),
   admin: personSchema.omit({ role: true }),
+  /** Optional: defaults to a trial (see TRIAL_DAYS). */
+  subscription: subscriptionSchema.optional(),
 });
 export const adminSchema = personSchema.omit({ role: true });
 
@@ -38,7 +42,11 @@ export async function onboardFirm(input: z.infer<typeof onboardSchema>, createdB
   if (await emailTaken(input.admin.email)) throw new OnboardingError("Someone already has a LawAI account with that email.", 409);
   const slug = await uniqueSlug(input.firm.name);
   const created = await db.transaction(async (tx) => {
-    const [firm] = await tx.insert(firms).values({ name: input.firm.name, slug, jurisdictions: input.firm.jurisdictions }).returning();
+    const sub = input.subscription ?? defaultSubscription();
+    const [firm] = await tx
+      .insert(firms)
+      .values({ name: input.firm.name, slug, jurisdictions: input.firm.jurisdictions, plan: sub.plan, seatLimit: sub.seatLimit, monthlyFee: sub.monthlyFee, subscriptionEndsAt: sub.endsAt })
+      .returning();
     const { user, link } = await createAccount({ ...input.admin, role: "admin", firmId: firm!.id }, createdBy, tx);
     return { firm: firm!, admin: user, link };
   });
@@ -65,6 +73,10 @@ export async function listFirms() {
         createdAt: firms.createdAt,
         suspendedAt: firms.suspendedAt,
         suspendedReason: firms.suspendedReason,
+        plan: firms.plan,
+        seatLimit: firms.seatLimit,
+        monthlyFee: firms.monthlyFee,
+        subscriptionEndsAt: firms.subscriptionEndsAt,
         activeUsers: sql<number>`count(${users.id}) filter (where ${users.deactivatedAt} is null and ${users.activatedAt} is not null)`.mapWith(Number),
         pendingInvites: sql<number>`count(${users.id}) filter (where ${users.deactivatedAt} is null and ${users.activatedAt} is null)`.mapWith(Number),
       })
@@ -103,6 +115,35 @@ export async function setFirmSuspended(firmId: string, suspended: boolean, reaso
     if (suspended) await tx.delete(sessions).where(inArray(sessions.userId, tx.select({ id: users.id }).from(users).where(eq(users.firmId, firmId))));
     return row!;
   });
+}
+
+/** Change a firm's plan, seats, fee or end date (a renewal is just a later end date). */
+export async function setSubscription(firmId: string, sub: SubscriptionInput) {
+  const [row] = await db
+    .update(firms)
+    .set({ plan: sub.plan, seatLimit: sub.seatLimit, monthlyFee: sub.monthlyFee, subscriptionEndsAt: sub.endsAt })
+    .where(eq(firms.id, firmId))
+    .returning();
+  if (!row) throw new OnboardingError("No firm with that id.", 404);
+  return row;
+}
+
+/** Push the end date out by whole months, from the current end date or from today if it has already passed. */
+export async function extendSubscription(firmId: string, months: number) {
+  const [firm] = await db.select().from(firms).where(eq(firms.id, firmId)).limit(1);
+  if (!firm) throw new OnboardingError("No firm with that id.", 404);
+  const now = new Date();
+  const from = firm.subscriptionEndsAt && firm.subscriptionEndsAt > now ? firm.subscriptionEndsAt : now;
+  await db.update(firms).set({ subscriptionEndsAt: addMonths(from, months) }).where(eq(firms.id, firmId));
+}
+
+/** True when the firm has no free seat for another person (active + invited count against the limit). */
+export async function seatsFull(firmId: string) {
+  const [row] = await db
+    .select({ limit: firms.seatLimit, used: sql<number>`(select count(*) from ${users} where ${users.firmId} = ${firms.id} and ${users.deactivatedAt} is null)`.mapWith(Number) })
+    .from(firms)
+    .where(eq(firms.id, firmId));
+  return !!row && row.limit !== null && row.used >= row.limit;
 }
 
 export const firmStatusJson = (f: { id: string; name: string; slug: string; suspendedAt: Date | null; suspendedReason: string | null }) => ({

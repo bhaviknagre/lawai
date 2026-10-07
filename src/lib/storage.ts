@@ -32,6 +32,9 @@ const safe = (key: string) => {
   return p;
 };
 
+/** Where uploads live, for the Settings → System status panel. */
+export const storageLabel = () => (s3 ? `S3 · ${bucket}` : blob ? "Vercel Blob (private)" : "Local disk");
+
 export async function putFile(key: string, body: Buffer, contentType: string) {
   if (s3) {
     await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: contentType }));
