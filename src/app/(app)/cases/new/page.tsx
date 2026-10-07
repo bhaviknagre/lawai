@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { clientOptions } from "@/lib/queries/cases";
 import { getFirmUsers, getJurisdictions } from "@/lib/queries/common";
 import { ActionForm } from "@/components/forms";
@@ -11,7 +11,7 @@ const AREAS = ["Litigation", "Arbitration", "Corporate", "Employment", "Intellec
 
 export default async function NewCasePage({ searchParams }: { searchParams: Promise<{ client?: string }> }) {
   const { client } = await searchParams;
-  const user = await requireUser();
+  const user = await requirePermission("matters.create");
   const [clients, jur, people] = await Promise.all([clientOptions(user), getJurisdictions(), getFirmUsers(user.firmId)]);
   return (
     <>

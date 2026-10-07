@@ -56,6 +56,9 @@ export const firms = pgTable("firms", {
     .$type<Record<string, number>>()
     .notNull()
     .default({ chat: 6, review: 45, draft: 20, research: 30 }),
+  /** Set by a LawAI operator (e.g. unpaid invoice). Nobody in the firm can sign in until it's cleared; data is kept. */
+  suspendedAt: timestamp("suspended_at", { withTimezone: true }),
+  suspendedReason: text("suspended_reason"),
   createdAt: createdAt(),
 });
 
@@ -71,6 +74,12 @@ export const users = pgTable(
     title: text("title").notNull().default("Attorney"),
     color: text("color").notNull().default("#2A3858"),
     weeklyTargetHours: integer("weekly_target_hours").notNull().default(32),
+    /** LawAI operator: can open /platform to onboard firms. Never set through the app. */
+    isPlatformAdmin: boolean("is_platform_admin").notNull().default(false),
+    /** When the person first set their own password. Null = invited, hasn't accepted yet. */
+    activatedAt: timestamp("activated_at", { withTimezone: true }).defaultNow(),
+    /** Deactivated users can't sign in. Rows are kept because time, tasks and documents reference them. */
+    deactivatedAt: timestamp("deactivated_at", { withTimezone: true }),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("users_email_idx").on(t.email)],
@@ -88,6 +97,22 @@ export const sessions = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("sessions_user_idx").on(t.userId)],
+);
+
+/** One-time links that let a person set their password: invites and admin-issued resets. */
+export const userTokens = pgTable(
+  "user_tokens",
+  {
+    /** sha256 of the token in the link — raw tokens are never stored. */
+    id: text("id").primaryKey(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    purpose: text("purpose").$type<"invite" | "reset">().notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdBy: uuid("created_by"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("user_tokens_user_idx").on(t.userId)],
 );
 
 export const jurisdictions = pgTable("jurisdictions", {

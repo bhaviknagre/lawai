@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Download, Loader2, RefreshCw, Sparkles, Trash2 } from "lucide-react";
 import { requireUser } from "@/lib/auth";
+import { can, DOC_STATUSES_FOR } from "@/lib/permissions";
 import { getDocument } from "@/lib/queries/documents";
 import { aiStatus } from "@/lib/ai-service";
 import { deleteDocument, reingest, setDocStatus } from "@/app/actions/documents";
@@ -59,7 +60,7 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
 
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-[13px] font-semibold text-muted">Set status:</span>
-        {(["draft", "in_review", "final", "signed", "filed"] as const).map((s) => (
+        {DOC_STATUSES_FOR(user).map((s) => (
           <form key={s} action={setDocStatus.bind(null, d.id, s)}>
             <button className={`pill min-h-8 border px-3 ${d.status === s ? "border-ink bg-ink text-white" : "border-line-strong bg-white"}`}>{DOC_STATUS_LABEL[s]}</button>
           </form>
@@ -91,9 +92,11 @@ export default async function DocumentPage({ params }: { params: Promise<{ id: s
                 : <span className="font-sans text-muted">No text yet.</span>}
             </div>
           </article>
-          <form action={deleteDocument.bind(null, d.id)} className="self-start">
-            <button className="btn btn-ghost btn-sm text-bad"><Trash2 size={15} />Delete document</button>
-          </form>
+          {can(user, "documents.delete") && (
+            <form action={deleteDocument.bind(null, d.id)} className="self-start">
+              <button className="btn btn-ghost btn-sm text-bad"><Trash2 size={15} />Delete document</button>
+            </form>
+          )}
         </div>
         <DocPanel
           docId={d.id}

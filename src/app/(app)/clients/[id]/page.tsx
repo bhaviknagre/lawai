@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Mail, Phone, Plus, Sparkles } from "lucide-react";
 import { requireUser } from "@/lib/auth";
+import { can, DOC_STATUSES_FOR } from "@/lib/permissions";
 import { getClientDetail } from "@/lib/queries/clients";
 import { ActionForm } from "@/components/forms";
 import { ClientFields } from "@/components/client-fields";
@@ -29,7 +30,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
           </div>
           <div className="flex gap-2.5">
             {d.matters[0] && <Link href={`/assistant?case=${d.matters[0].id}`} className="btn btn-secondary"><Sparkles size={17} />Ask about this client</Link>}
-            <Link href={`/cases/new?client=${c.id}`} className="btn btn-primary"><Plus size={18} />New matter</Link>
+            {can(user, "matters.create") && <Link href={`/cases/new?client=${c.id}`} className="btn btn-primary"><Plus size={18} />New matter</Link>}
           </div>
         </div>
       </div>

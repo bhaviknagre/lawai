@@ -6,6 +6,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { documentIssues, documents, documentVersions, playbookRules } from "@/db/schema";
 import { requireUser, type SessionUser } from "@/lib/auth";
+import { assertCan, can } from "@/lib/permissions";
 import { accessibleCaseIds, assertCaseAccess, caseScope } from "@/lib/access";
 import { aiService } from "@/lib/ai-service";
 import { deleteFile } from "@/lib/storage";
@@ -30,6 +31,7 @@ async function saveVersion(user: SessionUser, doc: typeof documents.$inferSelect
 
 export async function setDocStatus(id: string, status: "draft" | "in_review" | "final" | "signed" | "filed") {
   const user = await requireUser();
+  if (status !== "draft" && status !== "in_review") assertCan(user, "documents.finalize");
   const doc = await loadDoc(user, id);
   await db.update(documents).set({ status }).where(eq(documents.id, id));
   await logActivity(user, { action: "doc_status", description: `${doc.title} marked ${status.replace("_", " ")}`, caseId: doc.caseId });
@@ -121,6 +123,7 @@ export async function createDraftDocument(input: { title: string; content: strin
 
 export async function deleteDocument(id: string) {
   const user = await requireUser();
+  assertCan(user, "documents.delete");
   const doc = await loadDoc(user, id);
   await db.delete(documents).where(eq(documents.id, id));
   if (doc.storageKey) await deleteFile(doc.storageKey);
@@ -140,7 +143,7 @@ export async function reingest(id: string) {
 // ── Playbook (settings) ─────────────────────────────────────────────
 export async function addPlaybookRule(_: unknown, form: FormData) {
   const user = await requireUser();
-  if (user.role !== "admin") return { error: "Only admins can change the playbook." };
+  if (!can(user, "playbook.edit")) return { error: "Only admins can change the playbook." };
   const title = String(form.get("title") ?? "").trim();
   const rule = String(form.get("rule") ?? "").trim();
   if (!title || !rule) return { error: "Add a title and the rule text." };
@@ -158,7 +161,7 @@ export async function addPlaybookRule(_: unknown, form: FormData) {
 
 export async function deletePlaybookRule(id: string) {
   const user = await requireUser();
-  if (user.role !== "admin") return;
+  if (!can(user, "playbook.edit")) return;
   await db.delete(playbookRules).where(and(eq(playbookRules.id, id), eq(playbookRules.firmId, user.firmId)));
   revalidatePath("/settings");
 }

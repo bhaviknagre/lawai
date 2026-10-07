@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { caseMembers, cases, clients, events, tasks, timeEntries } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
+import { assertCan, can } from "@/lib/permissions";
 import { accessibleCaseIds, assertCaseAccess } from "@/lib/access";
 import { logActivity } from "@/lib/queries/common";
 
@@ -31,6 +32,7 @@ const caseSchema = z.object({
 
 export async function createCase(_: FormState, form: FormData): Promise<FormState> {
   const user = await requireUser();
+  if (!can(user, "matters.create")) return { error: "Only attorneys and admins can open matters." };
   const p = caseSchema.safeParse(Object.fromEntries(form));
   if (!p.success) return { error: p.error.issues[0]!.message };
   const team = form.getAll("team").map(String).filter(Boolean);
@@ -60,6 +62,7 @@ export async function updateCase(id: string, _: FormState, form: FormData): Prom
     .safeParse(Object.fromEntries(form));
   if (!data.success) return { error: data.error.issues[0]!.message };
   const [before] = await db.select().from(cases).where(eq(cases.id, id));
+  if (before!.status !== data.data.status && !can(user, "matters.status")) return { error: "Only attorneys and admins can put a matter on hold or close it." };
   await db
     .update(cases)
     .set({ ...data.data, closedAt: data.data.status === "closed" ? (before!.closedAt ?? new Date().toISOString().slice(0, 10)) : null })
@@ -72,6 +75,7 @@ export async function updateCase(id: string, _: FormState, form: FormData): Prom
 
 export async function setCaseTeam(id: string, form: FormData) {
   const user = await requireUser();
+  assertCan(user, "matters.team");
   await assertCaseAccess(user, id);
   const team = Array.from(new Set(form.getAll("team").map(String).filter(Boolean)));
   if (!team.length) return;

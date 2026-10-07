@@ -1,25 +1,32 @@
 import "server-only";
 import { cookies, headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { createHash, randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, isNotNull, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { firms, sessions, users } from "@/db/schema";
+import { can, type Permission } from "./permissions";
 
 export const SESSION_COOKIE = "lawai_session";
 const SESSION_DAYS = 14;
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
+/** The user and whether their firm is suspended, or null when the email/password don't match. */
 export async function verifyPassword(email: string, password: string) {
-  const [user] = await db.select().from(users).where(eq(users.email, email.toLowerCase().trim())).limit(1);
-  if (!user) {
+  const [row] = await db
+    .select({ user: users, suspendedAt: firms.suspendedAt })
+    .from(users)
+    .innerJoin(firms, eq(firms.id, users.firmId))
+    .where(and(eq(users.email, email.toLowerCase().trim()), isNull(users.deactivatedAt), isNotNull(users.activatedAt)))
+    .limit(1);
+  if (!row) {
     await bcrypt.compare(password, "$2a$10$invalidinvalidinvalidinvalidinvalidinvalidinvalidinv"); // timing-safe
     return null;
   }
-  return (await bcrypt.compare(password, user.passwordHash)) ? user : null;
+  return (await bcrypt.compare(password, row.user.passwordHash)) ? { user: row.user, firmSuspended: !!row.suspendedAt } : null;
 }
 
 export async function createSession(userId: string) {
@@ -60,6 +67,7 @@ export type SessionUser = {
   title: string;
   color: string;
   initials: string;
+  isPlatformAdmin: boolean;
 };
 
 /** Current user, or null. Cached per request. */
@@ -71,7 +79,7 @@ export const getUser = cache(async (): Promise<SessionUser | null> => {
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
     .innerJoin(firms, eq(firms.id, users.firmId))
-    .where(and(eq(sessions.id, hashToken(token)), gt(sessions.expiresAt, new Date())))
+    .where(and(eq(sessions.id, hashToken(token)), gt(sessions.expiresAt, new Date()), isNull(users.deactivatedAt), isNull(firms.suspendedAt)))
     .limit(1);
   if (!row) return null;
   const { user, firm } = row;
@@ -86,6 +94,7 @@ export const getUser = cache(async (): Promise<SessionUser | null> => {
     title: user.title,
     color: user.color,
     initials: initials(user.name),
+    isPlatformAdmin: user.isPlatformAdmin,
   };
 });
 
@@ -93,6 +102,20 @@ export const getUser = cache(async (): Promise<SessionUser | null> => {
 export async function requireUser() {
   const user = await getUser();
   if (!user) redirect("/login");
+  return user;
+}
+
+/** Pages a role can't open render the "Not found, or you don't have access" page. */
+export async function requirePermission(permission: Permission) {
+  const user = await requireUser();
+  if (!can(user, permission)) notFound();
+  return user;
+}
+
+/** LawAI operators only. 404s for everyone else so the console isn't discoverable. */
+export async function requirePlatformAdmin() {
+  const user = await requireUser();
+  if (!user.isPlatformAdmin) notFound();
   return user;
 }
 

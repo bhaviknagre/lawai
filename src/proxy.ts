@@ -4,7 +4,9 @@ import { NextResponse, type NextRequest } from "next/server";
 export function proxy(req: NextRequest) {
   const hasSession = req.cookies.has("lawai_session");
   const { pathname } = req.nextUrl;
-  if (!hasSession && !pathname.startsWith("/login") && !pathname.startsWith("/api/cron")) {
+  // /invite is the public set-your-password page; /api/cron, /api/platform and /api/internal check their own bearer tokens.
+  const isPublic = ["/login", "/invite/", "/api/cron", "/api/platform/", "/api/internal/"].some((p) => pathname.startsWith(p));
+  if (!hasSession && !isPublic) {
     if (pathname.startsWith("/api/")) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
     const url = new URL("/login", req.url);
     if (pathname !== "/") url.searchParams.set("next", pathname);

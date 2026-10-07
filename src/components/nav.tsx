@@ -2,9 +2,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  BarChart3, BookOpenText, Briefcase, CalendarCheck, FileText, LayoutGrid, PenLine, Sparkles, Users, Settings,
+  BarChart3, BookOpenText, Briefcase, Building2, CalendarCheck, FileText, LayoutGrid, PenLine, Sparkles, Users, Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { canOpen, type Role } from "@/lib/permissions";
 
 const GROUPS = [
   { label: "Workspace", items: [
@@ -26,7 +27,7 @@ const GROUPS = [
   ] },
 ] as const;
 
-export function Nav({ badges, onNavigate }: { badges: Record<string, number>; onNavigate?: () => void }) {
+export function Nav({ badges, role, platform, onNavigate }: { badges: Record<string, number>; role: Role; platform?: boolean; onNavigate?: () => void }) {
   const path = usePathname();
   const active = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
   return (
@@ -34,7 +35,7 @@ export function Nav({ badges, onNavigate }: { badges: Record<string, number>; on
       {GROUPS.map((g) => (
         <div key={g.label} className="flex flex-col gap-0.5">
           <div className="px-2.5 pb-1.5 text-[11px] font-semibold tracking-[0.06em] text-[#8592a8]">{g.label}</div>
-          {g.items.map((it) => {
+          {g.items.filter((it) => canOpen({ role }, it.href)).map((it) => {
             const on = active(it.href);
             const Icon = it.icon;
             const badge = "badge" in it ? badges[it.badge] : 0;
@@ -57,10 +58,19 @@ export function Nav({ badges, onNavigate }: { badges: Record<string, number>; on
           })}
         </div>
       ))}
+      {platform && (
+        <Link
+          href="/platform"
+          onClick={onNavigate}
+          className={cn("mt-auto flex min-h-[42px] items-center gap-3 rounded-[9px] px-2.5 text-[14.5px] font-medium", path.startsWith("/platform") ? "bg-ink-3 text-white" : "text-ink-text hover:bg-ink-2")}
+        >
+          <Building2 size={18} strokeWidth={1.8} aria-hidden /> Platform
+        </Link>
+      )}
       <Link
         href="/settings"
         onClick={onNavigate}
-        className={cn("mt-auto flex min-h-[42px] items-center gap-3 rounded-[9px] px-2.5 text-[14.5px] font-medium", path.startsWith("/settings") ? "bg-ink-3 text-white" : "text-ink-text hover:bg-ink-2")}
+        className={cn(platform ? "" : "mt-auto", "flex min-h-[42px] items-center gap-3 rounded-[9px] px-2.5 text-[14.5px] font-medium", path.startsWith("/settings") ? "bg-ink-3 text-white" : "text-ink-text hover:bg-ink-2")}
       >
         <Settings size={18} strokeWidth={1.8} aria-hidden /> Settings
       </Link>
@@ -68,7 +78,7 @@ export function Nav({ badges, onNavigate }: { badges: Record<string, number>; on
   );
 }
 
-export function MobileNav({ badges }: { badges: Record<string, number> }) {
+export function MobileNav({ badges, role, platform }: { badges: Record<string, number>; role: Role; platform?: boolean }) {
   return (
     <details className="group lg:hidden">
       <summary className="flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-[10px] border border-line-strong bg-white" aria-label="Open menu">
@@ -76,7 +86,7 @@ export function MobileNav({ badges }: { badges: Record<string, number> }) {
       </summary>
       <div className="fixed inset-0 z-40 flex">
         <div className="flex w-[272px] flex-col gap-6 overflow-y-auto bg-ink p-4">
-          <Nav badges={badges} onNavigate={() => document.querySelectorAll("details[open]").forEach((d) => d.removeAttribute("open"))} />
+          <Nav badges={badges} role={role} platform={platform} onNavigate={() => document.querySelectorAll("details[open]").forEach((d) => d.removeAttribute("open"))} />
         </div>
         <button
           type="button"

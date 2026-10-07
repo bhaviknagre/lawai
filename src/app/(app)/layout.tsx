@@ -34,7 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </span>
           <span className="font-display text-[21px] font-extrabold tracking-[-0.01em]">LawAI</span>
         </Link>
-        <Nav badges={badges} />
+        <Nav badges={badges} role={user.role} platform={user.isPlatformAdmin} />
         <div className="flex items-center gap-2.5 border-t border-ink-3 pl-2 pt-4">
           <Avatar name={user.name} color={user.color} size={38} />
           <div className="min-w-0 flex-1">
@@ -51,7 +51,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-line bg-white px-4 py-3 lg:px-8">
-          <MobileNav badges={badges} />
+          <MobileNav badges={badges} role={user.role} platform={user.isPlatformAdmin} />
           <form action="/search" role="search" className="relative flex max-w-[620px] flex-1 items-center">
             <label htmlFor="gsearch" className="sr-only">Search LawAI</label>
             <Search size={18} className="pointer-events-none absolute left-3.5 text-subtle" aria-hidden />

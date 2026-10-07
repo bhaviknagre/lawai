@@ -7,6 +7,8 @@ export const metadata = { title: "Sign in" };
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
   if (await getUser()) redirect("/");
   const { next } = await searchParams;
+  // Demo hints and prefilled credentials only where the seeded demo firm is meant to be used.
+  const demo = process.env.SHOW_DEMO_LOGIN === "true";
   return (
     <main className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
       <section className="hidden flex-col justify-between bg-ink p-12 text-white lg:flex">
@@ -22,13 +24,13 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             Hearings, deadlines, contracts and case law in one workspace, with an assistant that answers from your own matters and cites every source.
           </p>
         </div>
-        <p className="text-[13px] text-ink-muted">Demo workspace · all clients and matters are fictional</p>
+        {demo && <p className="text-[13px] text-ink-muted">Demo workspace · all clients and matters are fictional</p>}
       </section>
       <section className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
           <h1 className="h1">Sign in</h1>
-          <p className="mb-6 mt-2 text-muted">Demo accounts: john@, aisha@, sam@demo.law · password demo1234</p>
-          <LoginForm next={next} />
+          {demo ? <p className="mb-6 mt-2 text-muted">Demo accounts: john@, aisha@, sam@demo.law · password demo1234</p> : <p className="mb-6 mt-2 text-muted">New to LawAI? Use the invite link from your firm&apos;s admin.</p>}
+          <LoginForm next={next} demo={demo} />
         </div>
       </section>
     </main>

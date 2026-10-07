@@ -6,6 +6,8 @@ import bcrypt from "bcryptjs";
 import { db } from "@/db";
 import { firms, users } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
+import { can } from "@/lib/permissions";
+import { MIN_PASSWORD } from "@/lib/accounts";
 
 export async function updateProfile(_: unknown, form: FormData) {
   const user = await requireUser();
@@ -14,7 +16,7 @@ export async function updateProfile(_: unknown, form: FormData) {
   await db.update(users).set(p.data).where(eq(users.id, user.id));
   const pw = String(form.get("password") ?? "");
   if (pw) {
-    if (pw.length < 8) return { error: "New password must be at least 8 characters." };
+    if (pw.length < MIN_PASSWORD) return { error: `New password must be at least ${MIN_PASSWORD} characters.` };
     await db.update(users).set({ passwordHash: await bcrypt.hash(pw, 10) }).where(eq(users.id, user.id));
   }
   revalidatePath("/", "layout");
@@ -23,7 +25,7 @@ export async function updateProfile(_: unknown, form: FormData) {
 
 export async function updateFirm(_: unknown, form: FormData) {
   const user = await requireUser();
-  if (user.role !== "admin") return { error: "Only admins can change firm settings." };
+  if (!can(user, "firm.settings")) return { error: "Only admins can change firm settings." };
   const jurisdictions = form.getAll("jurisdictions").map(String);
   const minutes = Object.fromEntries(["chat", "review", "draft", "research"].map((k) => [k, Math.max(0, Number(form.get(`min_${k}`)) || 0)]));
   const name = String(form.get("name") ?? "").trim();
