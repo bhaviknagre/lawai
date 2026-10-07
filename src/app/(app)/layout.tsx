@@ -1,29 +1,35 @@
 import Link from "next/link";
-import { and, count, desc, eq, isNull, ne, or, lte } from "drizzle-orm";
+import { and, count, desc, eq, isNull, isNotNull, ne, or, lte } from "drizzle-orm";
 import { addDays } from "date-fns";
-import { Bell, Search, Sparkles, LogOut } from "lucide-react";
+import { AlertTriangle, Bell, Search, Sparkles, LogOut } from "lucide-react";
 import { db } from "@/db";
-import { cases, notifications, tasks } from "@/db/schema";
+import { cases, firms, notifications, tasks } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { accessibleCaseIds, caseIn, caseScope } from "@/lib/access";
 import { Nav, MobileNav } from "@/components/nav";
 import { Avatar } from "@/components/ui";
 import { logout } from "@/app/actions/auth";
 import { markNotificationsRead } from "@/app/actions/misc";
-import { ago } from "@/lib/utils";
+import { ADMIN_BANNER_DAYS, OPS_SLUG, RENEWAL_WINDOW_DAYS } from "@/lib/subscriptions";
+import { ago, daysUntil, fmtDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const ids = await accessibleCaseIds(user);
-  const [[{ n: caseCount } = { n: 0 }], [{ n: urgent } = { n: 0 }], notes] = await Promise.all([
+  const [[{ n: caseCount } = { n: 0 }], [{ n: urgent } = { n: 0 }], notes, [{ n: renewals } = { n: 0 }]] = await Promise.all([
     db.select({ n: count() }).from(cases).where(and(caseIn(cases.id, ids), ne(cases.status, "closed"))),
     db.select({ n: count() }).from(tasks).where(and(eq(tasks.firmId, user.firmId), caseScope(tasks.caseId, ids), eq(tasks.status, "open"), or(eq(tasks.priority, "high"), lte(tasks.dueAt, addDays(new Date(), 3))))),
     db.select().from(notifications).where(eq(notifications.userId, user.id)).orderBy(desc(notifications.createdAt)).limit(8),
+    // Operators: firms whose term has ended or ends within the renewal window.
+    user.isPlatformAdmin
+      ? db.select({ n: count() }).from(firms).where(and(isNull(firms.suspendedAt), ne(firms.slug, OPS_SLUG), isNotNull(firms.subscriptionEndsAt), lte(firms.subscriptionEndsAt, addDays(new Date(), RENEWAL_WINDOW_DAYS))))
+      : Promise.resolve([]),
   ]);
   const unread = notes.filter((n) => !n.readAt).length;
-  const badges = { cases: caseCount, urgent };
+  const badges = { cases: caseCount, urgent, renewals };
+  const termDays = user.role === "admin" && user.firmSubscriptionEndsAt ? daysUntil(user.firmSubscriptionEndsAt) : null;
 
   return (
     <div className="flex min-h-screen">
@@ -52,11 +58,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-line bg-white px-4 py-3 lg:px-8">
           <MobileNav badges={badges} role={user.role} platform={user.isPlatformAdmin} />
-          <form action="/search" role="search" className="relative flex max-w-[620px] flex-1 items-center">
-            <label htmlFor="gsearch" className="sr-only">Search LawAI</label>
-            <Search size={18} className="pointer-events-none absolute left-3.5 text-subtle" aria-hidden />
-            <input id="gsearch" name="q" type="search" placeholder="Search cases, clients and documents" className="input h-11 bg-sunken pl-10" />
-          </form>
+          {!user.isPlatformAdmin && (
+            <form action="/search" role="search" className="relative flex max-w-[620px] flex-1 items-center">
+              <label htmlFor="gsearch" className="sr-only">Search LawAI</label>
+              <Search size={18} className="pointer-events-none absolute left-3.5 text-subtle" aria-hidden />
+              <input id="gsearch" name="q" type="search" placeholder="Search cases, clients and documents" className="input h-11 bg-sunken pl-10" />
+            </form>
+          )}
           <div className="flex-1" />
           <details className="relative">
             <summary className="relative flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-[10px] border border-line-strong bg-white" aria-label={`Notifications, ${unread} unread`}>
@@ -85,10 +93,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               ))}
             </div>
           </details>
-          <Link href="/assistant" className="btn btn-primary hidden sm:inline-flex">
-            <Sparkles size={17} /> Ask LawAI
-          </Link>
+          {!user.isPlatformAdmin && (
+            <Link href="/assistant" className="btn btn-primary hidden sm:inline-flex">
+              <Sparkles size={17} /> Ask LawAI
+            </Link>
+          )}
         </header>
+        {termDays !== null && termDays <= ADMIN_BANNER_DAYS && (
+          <div role="status" className="flex items-center gap-2.5 border-b border-bad-line/30 bg-bad-soft px-4 py-2.5 text-[13.5px] font-medium text-bad lg:px-8">
+            <AlertTriangle size={16} aria-hidden />
+            {termDays < 0
+              ? `Your firm's LawAI subscription ended on ${fmtDate(user.firmSubscriptionEndsAt, "d MMM yyyy")}. Contact LawAI to renew and keep access.`
+              : `Your firm's LawAI subscription ${termDays === 0 ? "ends today" : `ends in ${termDays} day${termDays === 1 ? "" : "s"}`} (${fmtDate(user.firmSubscriptionEndsAt, "d MMM yyyy")}). Contact LawAI to renew.`}
+          </div>
+        )}
         <main className="mx-auto flex w-full max-w-[1440px] flex-1 flex-col gap-6 px-4 pb-12 pt-6 lg:px-8">{children}</main>
       </div>
     </div>

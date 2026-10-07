@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  BarChart3, BookOpenText, Briefcase, Building2, CalendarCheck, FileText, LayoutGrid, PenLine, Sparkles, Users, Settings,
+  BarChart3, BookOpenText, Briefcase, Building2, CalendarCheck, CalendarClock, FileText, LayoutGrid, PenLine, Sparkles, Users, Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { canOpen, type Role } from "@/lib/permissions";
@@ -27,18 +27,28 @@ const GROUPS = [
   ] },
 ] as const;
 
+/** LawAI operators run the platform rather than a practice, so they get the operator console instead. */
+const OPERATOR_GROUPS = [
+  { label: "Platform", items: [
+    { label: "Overview", href: "/platform", icon: LayoutGrid },
+    { label: "Firms", href: "/platform/firms", icon: Building2 },
+    { label: "Renewals", href: "/platform/renewals", icon: CalendarClock, badge: "renewals" },
+  ] },
+] as const;
+
 export function Nav({ badges, role, platform, onNavigate }: { badges: Record<string, number>; role: Role; platform?: boolean; onNavigate?: () => void }) {
   const path = usePathname();
-  const active = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
+  const groups: readonly { label: string; items: readonly { label: string; href: string; icon: typeof LayoutGrid; badge?: string }[] }[] = platform ? OPERATOR_GROUPS : GROUPS;
+  const active = (href: string) => (href === "/" || href === "/platform" ? path === href : path.startsWith(href));
   return (
     <nav aria-label="Main" className="flex flex-1 flex-col gap-5">
-      {GROUPS.map((g) => (
+      {groups.map((g) => (
         <div key={g.label} className="flex flex-col gap-0.5">
           <div className="px-2.5 pb-1.5 text-[11px] font-semibold tracking-[0.06em] text-[#8592a8]">{g.label}</div>
           {g.items.filter((it) => canOpen({ role }, it.href)).map((it) => {
             const on = active(it.href);
             const Icon = it.icon;
-            const badge = "badge" in it ? badges[it.badge] : 0;
+            const badge = it.badge ? badges[it.badge] : 0;
             return (
               <Link
                 key={it.href}
@@ -58,19 +68,10 @@ export function Nav({ badges, role, platform, onNavigate }: { badges: Record<str
           })}
         </div>
       ))}
-      {platform && (
-        <Link
-          href="/platform"
-          onClick={onNavigate}
-          className={cn("mt-auto flex min-h-[42px] items-center gap-3 rounded-[9px] px-2.5 text-[14.5px] font-medium", path.startsWith("/platform") ? "bg-ink-3 text-white" : "text-ink-text hover:bg-ink-2")}
-        >
-          <Building2 size={18} strokeWidth={1.8} aria-hidden /> Platform
-        </Link>
-      )}
       <Link
         href="/settings"
         onClick={onNavigate}
-        className={cn(platform ? "" : "mt-auto", "flex min-h-[42px] items-center gap-3 rounded-[9px] px-2.5 text-[14.5px] font-medium", path.startsWith("/settings") ? "bg-ink-3 text-white" : "text-ink-text hover:bg-ink-2")}
+        className={cn("mt-auto flex min-h-[42px] items-center gap-3 rounded-[9px] px-2.5 text-[14.5px] font-medium", path.startsWith("/settings") ? "bg-ink-3 text-white" : "text-ink-text hover:bg-ink-2")}
       >
         <Settings size={18} strokeWidth={1.8} aria-hidden /> Settings
       </Link>

@@ -8,6 +8,9 @@ import { requireUser, type SessionUser } from "@/lib/auth";
 import { assertCan } from "@/lib/permissions";
 import { ROLES, createAccount, deliverLink, emailTaken, issueLink, issueReset, personSchema, type LinkState } from "@/lib/accounts";
 import { logActivity } from "@/lib/queries/common";
+import { seatsFull } from "@/lib/onboarding";
+
+const SEATS_FULL = "Your firm has used all its LawAI seats. Deactivate someone, or contact LawAI to add seats.";
 
 async function requireTeamAdmin() {
   const user = await requireUser();
@@ -34,6 +37,7 @@ export async function inviteTeamMember(_: LinkState, form: FormData): Promise<Li
   const p = personSchema.safeParse(Object.fromEntries(form));
   if (!p.success) return { error: p.error.issues[0]!.message };
   if (await emailTaken(p.data.email)) return { error: "Someone already has a LawAI account with that email." };
+  if (await seatsFull(admin.firmId)) return { error: SEATS_FULL };
   const { user, link } = await createAccount({ ...p.data, firmId: admin.firmId }, admin.id);
   await logActivity(admin, { action: "user_invited", description: `Invited ${user.name} as ${user.role}` });
   revalidatePath("/settings");
@@ -72,6 +76,7 @@ export async function setMemberRole(userId: string, form: FormData) {
 export async function setMemberActive(userId: string, active: boolean) {
   const admin = await requireTeamAdmin();
   const row = await teammate(admin, userId);
+  if (active && row.deactivatedAt && (await seatsFull(admin.firmId))) throw new Error(SEATS_FULL);
   await db.update(users).set({ deactivatedAt: active ? null : new Date() }).where(eq(users.id, row.id));
   if (!active) await db.delete(sessions).where(eq(sessions.userId, row.id));
   await logActivity(admin, { action: active ? "user_reactivated" : "user_deactivated", description: `${active ? "Reactivated" : "Deactivated"} ${row.name}` });

@@ -61,6 +61,8 @@ export type SessionUser = {
   firmId: string;
   firmName: string;
   firmJurisdictions: string[];
+  /** End of the firm's LawAI trial or paid term, for the renewal banner admins see. */
+  firmSubscriptionEndsAt: Date | null;
   name: string;
   email: string;
   role: "admin" | "attorney" | "paralegal";
@@ -88,6 +90,7 @@ export const getUser = cache(async (): Promise<SessionUser | null> => {
     firmId: user.firmId,
     firmName: firm.name,
     firmJurisdictions: firm.jurisdictions,
+    firmSubscriptionEndsAt: firm.subscriptionEndsAt,
     name: user.name,
     email: user.email,
     role: user.role,
