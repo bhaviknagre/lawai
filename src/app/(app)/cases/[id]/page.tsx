@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarPlus, FileUp, ListPlus, Sparkles, Clock } from "lucide-react";
 import { requireUser } from "@/lib/auth";
+import { can, DOC_STATUSES_FOR } from "@/lib/permissions";
 import { getCaseDetail } from "@/lib/queries/cases";
 import { getFirmUsers, jurisdictionMap } from "@/lib/queries/common";
 import { ActionForm, FormDialog } from "@/components/forms";
@@ -118,7 +119,9 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
                 <Field label="Stage"><input className="input" name="stage" defaultValue={c.stage} /></Field>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Priority"><select className="input" name="priority" defaultValue={c.priority}><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></Field>
-                  <Field label="Status"><select className="input" name="status" defaultValue={c.status}><option value="active">Active</option><option value="on_hold">On hold</option><option value="closed">Closed</option></select></Field>
+                  {can(user, "matters.status")
+                    ? <Field label="Status"><select className="input" name="status" defaultValue={c.status}><option value="active">Active</option><option value="on_hold">On hold</option><option value="closed">Closed</option></select></Field>
+                    : <Field label="Status"><input type="hidden" name="status" value={c.status} /><span className="input flex items-center bg-sunken">{CASE_STATUS_LABEL[c.status]}</span></Field>}
                 </div>
                 <Field label="Court / forum"><input className="input" name="court" defaultValue={c.court ?? ""} /></Field>
                 <input type="hidden" name="description" value={c.description ?? ""} />
@@ -137,7 +140,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
                 </li>
               ))}
             </ul>
-            <details className="border-t border-line px-5 py-3">
+            {can(user, "matters.team") && <details className="border-t border-line px-5 py-3">
               <summary className="link cursor-pointer text-[13.5px]">Change team</summary>
               <form action={setCaseTeam.bind(null, c.id)} className="mt-3 flex flex-col gap-2">
                 {people.map((p) => (
@@ -150,7 +153,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
                 <p className="text-[12px] text-muted">Radio button marks the lead. Only staffed people (and admins) can open this matter.</p>
                 <button className="btn btn-secondary btn-sm self-start">Save team</button>
               </form>
-            </details>
+            </details>}
           </section>
 
           <section className="card">

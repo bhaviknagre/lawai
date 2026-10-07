@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Plus, Sparkles } from "lucide-react";
 import { requireUser } from "@/lib/auth";
+import { can, DOC_STATUSES_FOR } from "@/lib/permissions";
 import { listCases } from "@/lib/queries/cases";
 import { getFirmUsers, getJurisdictions } from "@/lib/queries/common";
 import { Avatar, Empty, PageHeader, Pill, priorityTone } from "@/components/ui";
@@ -23,7 +24,7 @@ export default async function CasesPage({ searchParams }: { searchParams: Promis
     <>
       <PageHeader title="Cases" sub={`${data.total} ${sp.status === "closed" ? "closed" : sp.status === "all" ? "" : "open"} matters you can access`}>
         <Link href="/assistant" className="btn btn-secondary"><Sparkles size={17} />Ask about a case</Link>
-        <Link href="/cases/new" className="btn btn-primary"><Plus size={18} />New case</Link>
+        {can(user, "matters.create") && <Link href="/cases/new" className="btn btn-primary"><Plus size={18} />New case</Link>}
       </PageHeader>
 
       <div className="flex flex-wrap gap-2">

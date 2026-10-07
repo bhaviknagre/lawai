@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { format } from "date-fns";
-import { requireUser } from "@/lib/auth";
+import { requirePermission } from "@/lib/auth";
 import { getReports, type Period } from "@/lib/queries/reports";
 import { Avatar, PageHeader, Pill } from "@/components/ui";
 import { cn } from "@/lib/utils";
@@ -11,7 +11,7 @@ const PERIODS: { id: Period; label: string }[] = [{ id: "quarter", label: "This 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
   const { period: p } = await searchParams;
   const period = (PERIODS.find((x) => x.id === p)?.id ?? "quarter") as Period;
-  const user = await requireUser();
+  const user = await requirePermission("reports.view");
   const r = await getReports(user, period);
   const maxW = Math.max(1, ...r.weekly.map((w) => w.hours));
   const maxA = Math.max(1, ...r.areas.map((a) => a.n));

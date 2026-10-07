@@ -5,16 +5,20 @@ import { firms, playbookRules } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
 import { getFirmUsers, getJurisdictions } from "@/lib/queries/common";
 import { aiStatus } from "@/lib/ai-service";
+import { ROLE_LABELS } from "@/lib/accounts";
 import { ActionForm } from "@/components/forms";
 import { Avatar, Field, PageHeader, Pill } from "@/components/ui";
 import { updateFirm, updateProfile } from "@/app/actions/settings";
 import { addPlaybookRule, deletePlaybookRule } from "@/app/actions/documents";
+import { TeamSettings } from "./team";
+import { can } from "@/lib/permissions";
 
 export const metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   const user = await requireUser();
-  const admin = user.role === "admin";
+  const admin = can(user, "firm.settings");
+  const editPlaybook = can(user, "playbook.edit");
   const [[firm], jur, rules, people, ai] = await Promise.all([
     db.select().from(firms).where(eq(firms.id, user.firmId)),
     getJurisdictions(),
@@ -48,11 +52,17 @@ export default async function SettingsPage() {
             <li className="flex justify-between"><span>Contextual retrieval</span>{ai.contextual ? <Pill tone="good">On · {ai.models.fast}</Pill> : <Pill tone="neutral">Off</Pill>}</li>
             <li className="flex justify-between"><span>File storage</span><Pill>{process.env.S3_BUCKET ? `S3 · ${process.env.S3_BUCKET}` : "Local disk"}</Pill></li>
           </ul>
-          <h3 className="mt-5 font-semibold">Team</h3>
-          <ul className="mt-2 flex flex-col gap-2">
-            {people.map((p) => <li key={p.id} className="flex items-center gap-2.5 text-[14px]"><Avatar name={p.name} color={p.color} size={28} />{p.name}<span className="text-muted">· {p.title}</span><Pill className="ml-auto capitalize">{p.role}</Pill></li>)}
-          </ul>
+          {!can(user, "team.manage") && (
+            <>
+              <h3 className="mt-5 font-semibold">Team</h3>
+              <ul className="mt-2 flex flex-col gap-2">
+                {people.map((p) => <li key={p.id} className="flex items-center gap-2.5 text-[14px]"><Avatar name={p.name} color={p.color} size={28} />{p.name}<span className="text-muted">· {p.title}</span><Pill className="ml-auto">{ROLE_LABELS[p.role]}</Pill></li>)}
+              </ul>
+            </>
+          )}
         </section>
+
+        {can(user, "team.manage") && <TeamSettings user={user} />}
 
         {admin && firm && (
           <section className="card p-5">
@@ -85,11 +95,11 @@ export default async function SettingsPage() {
               <li key={r.id} className="flex items-start gap-3 border-t border-line py-3">
                 <Pill tone={r.severity === "high" ? "bad" : r.severity === "medium" ? "mid" : "neutral"} className="capitalize">{r.severity}</Pill>
                 <div className="min-w-0 flex-1"><div className="font-semibold">{r.title} <span className="font-normal text-muted">· {r.documentKind}</span></div><div className="text-[13.5px] text-muted">{r.rule}</div></div>
-                {admin && <form action={deletePlaybookRule.bind(null, r.id)}><button aria-label={`Delete rule ${r.title}`} className="flex h-9 w-9 items-center justify-center rounded-lg text-subtle hover:bg-bad-soft hover:text-bad"><Trash2 size={15} /></button></form>}
+                {editPlaybook && <form action={deletePlaybookRule.bind(null, r.id)}><button aria-label={`Delete rule ${r.title}`} className="flex h-9 w-9 items-center justify-center rounded-lg text-subtle hover:bg-bad-soft hover:text-bad"><Trash2 size={15} /></button></form>}
               </li>
             ))}
           </ul>
-          {admin && (
+          {editPlaybook && (
             <details className="mt-2 border-t border-line pt-3">
               <summary className="link cursor-pointer text-[14px]">Add a rule</summary>
               <div className="mt-3">

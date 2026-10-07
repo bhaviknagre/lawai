@@ -1,6 +1,9 @@
 """
-Read uploaded files (Next.js writes them). S3-compatible when S3_BUCKET is set, otherwise local disk under STORAGE_DIR.
-Relative STORAGE_DIR is anchored at the repo root, the same directory Next.js resolves it from.
+Read uploaded files (Next.js writes them), first match wins:
+  - S3-compatible when S3_BUCKET is set
+  - through the Next.js app (GET {APP_URL}/api/internal/files) on Vercel or when FILES_URL is set;
+    that covers Vercel Blob, which has no S3 API
+  - local disk under STORAGE_DIR. Relative STORAGE_DIR is anchored at the repo root, like Next.js.
 """
 
 import asyncio
@@ -43,4 +46,12 @@ async def get_file(key: str) -> bytes:
             return _s3().get_object(Bucket=bucket, Key=key)["Body"].read()
 
         return await asyncio.to_thread(read)
+    files_url = env("FILES_URL") or (f"{env('APP_URL', '').rstrip('/')}/api/internal/files" if env("VERCEL") and env("APP_URL") else None)
+    if files_url:
+        import httpx
+
+        async with httpx.AsyncClient(timeout=60) as client:
+            res = await client.get(files_url, params={"key": key}, headers={"Authorization": f"Bearer {env('INTERNAL_API_TOKEN', '')}"})
+            res.raise_for_status()
+            return res.content
     return await asyncio.to_thread(_safe(key).read_bytes)

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { AlertTriangle, Briefcase, Clock, FileUp, Plus, Send, Sparkles, Users, Gavel, CalendarClock, FileText, CheckSquare } from "lucide-react";
 import { requireUser } from "@/lib/auth";
+import { can, DOC_STATUSES_FOR } from "@/lib/permissions";
 import { getDashboard } from "@/lib/queries/dashboard";
 import { jurisdictionMap } from "@/lib/queries/common";
 import { CardHeader, DocIcon, Empty, Pill, priorityTone, docStatusTone } from "@/components/ui";
@@ -36,7 +37,7 @@ export default async function Dashboard() {
         </div>
         <div className="flex flex-wrap gap-2.5">
           <Link href="/documents" className="btn btn-secondary"><FileUp size={18} />Upload document</Link>
-          <Link href="/cases/new" className="btn btn-secondary"><Plus size={18} />New case</Link>
+          {can(user, "matters.create") && <Link href="/cases/new" className="btn btn-secondary"><Plus size={18} />New case</Link>}
         </div>
       </div>
 
