@@ -1,19 +1,19 @@
 # Product specification — lawai
 
 > Status: draft. A coding agent must not implement product code until this specification is approved through Genesis.
-> Objective (DRAFT, to be confirmed by the user): LawAI is a matter-centric legal AI workspace for small and mid-size law firms, India first, whose answers and citations are verifiable.
+> Objective (Confirmed by the product owner 2026-10-19, DECISION-2bff3c26): LawAI is a matter-centric legal AI workspace for small and mid-size law firms, India first, whose answers and citations are verifiable.
 
 ## Problem
 
-Small and mid-size law firms cannot afford enterprise legal AI (competitor landscape and pricing in Genesis record KNOWLEDGE-0ab68aaf and docs/usp-ideas.html), and general AI tools produce citations a lawyer cannot trust without rechecking. LawAI already provides a matter-centric workspace (see docs/features.html and docs/ARCHITECTURE.md): matters with staffing-based access, documents with retrieval, review against playbook rules, research, drafting, calendar, tasks and time entries. This specification describes the ten features that make it trustworthy and India-ready, and the rules that bind all of them. Desired outcome: a lawyer can rely on, check and defend every AI-assisted output, and the firm stays in control of everything that leaves it.
+Small and mid-size law firms cannot afford enterprise legal AI (competitor landscape and pricing in Genesis record KNOWLEDGE-0ab68aaf and docs/usp-ideas.html), and general AI tools produce citations a lawyer cannot trust without rechecking. LawAI already provides a matter-centric workspace (see docs/features.html and docs/ARCHITECTURE.md): matters with staffing-based access, documents with retrieval, review against playbook rules, research, drafting, calendar, tasks and time entries. This specification describes the ten features that make it trustworthy and India-ready (and ready for other countries), and the rules that bind all of them. Desired outcome: a lawyer can rely on, check and defend every AI-assisted output, and the firm stays in control of everything that leaves it.
 
 ## Users
 
-- Platform operator: runs the LawAI service across firms, manages firms and platform-level data such as the India Pack (existing: src/app/api/platform, scripts/create-platform-admin.ts).
-- Firm admin: manages users, staffing, playbooks, approvals and privacy reports for one firm (existing role admin).
+- Platform operator: runs the LawAI service across firms, onboards firms and manages platform-level data such as Jurisdiction Packs (existing: src/app/api/platform, scripts/create-platform-admin.ts).
+- Firm admin: creates the firm's attorneys, associates and paralegals, and manages staffing, playbooks, privacy reports and all approvals for one firm; the firm admin is the approver wherever this specification previously said partner. There is no separate Partner role (DECISION-8cad9c43; existing role admin).
 - Attorney: works on staffed matters, reviews and approves AI output (existing role attorney).
 - Paralegal: prepares documents, tasks and deadlines on staffed matters (existing role paralegal).
-- End-client: new, read-only portal user who sees only partner-approved updates for their own matters (Feature 9).
+- End-client: new, read-only portal user who sees only firm-admin-approved updates for their own matters (Feature 9).
 
 Access to a matter equals staffing (case_members) except for admins; this is unchanged (src/lib/access.ts, ai/lawai_ai/access.py).
 
@@ -24,7 +24,7 @@ Each rule is also recorded as a Genesis invariant.
 - RULE-1 (INVARIANT-4efd75cc): The AI never presents an unverified citation as verified. A Verified label is set only by deterministic code that finds the authority and, for quotes, the exact text; never by the model.
 - RULE-2 (INVARIANT-0e524254): The AI drafts; a human approves anything that leaves the firm or changes a calendar, task, time entry or bill.
 - RULE-3 (INVARIANT-994c5bc5): Tenant isolation. No data crosses firms, and within a firm no data crosses matters the user is not staffed on; the filter is applied in the same query as retrieval.
-- RULE-4 (INVARIANT-809a4eef): The client portal shows only partner-approved content for the client's own matters.
+- RULE-4 (INVARIANT-809a4eef): The client portal shows only firm-admin-approved content for the client's own matters.
 - RULE-5 (INVARIANT-b8b38090): Secrets are never stored in the repository.
 - RULE-6 (INVARIANT-98a9f015): Every git commit message is exactly "lawAI MVP" with no AI attribution.
 - RULE-7 (INVARIANT-86d9e894): The .genesis/ directory is never pushed to GitHub.
@@ -65,19 +65,19 @@ Non-goals for this feature
 - Does not certify that a cited authority is good law, current, or supports the proposition; it checks existence and quote fidelity only.
 - Does not verify against external live databases in the first release.
 
-### Feature 2: India Pack
+### Feature 2: Jurisdiction Packs (India first)
 
-A jurisdiction pack for Indian practice: limitation periods and CPC/CrPC timing rules as deadline_rules, a statute library of bare acts as legal_sources, and an IPC to BNS (also CrPC to BNSS, Evidence Act to BSA) section mapping. Users: attorneys and paralegals in Indian firms. Why it matters: global competitors center on US/UK law; India-first is the wedge for small and mid-size firms.
+A pluggable per-country pack of statutes, limitation rules and court holidays, built only from free official government sources. India is the first pack (India Code for statutes, official court holiday lists); the India pack also carries India-specific content: limitation periods and CPC/CrPC timing rules as deadline_rules, and an IPC to BNS (also CrPC to BNSS, Evidence Act to BSA) section mapping. Other countries are added later the same way, without code changes to the calculator or retrieval. Users: attorneys and paralegals; platform operator (maintains packs). Why it matters: global competitors center on US/UK law; India-first is the wedge for small and mid-size firms, and a pluggable data layer lets the product follow firms into other countries (DECISION-348aa7bb).
 
-Feasibility in the existing code: Feasible: deadline_rules and jurisdictions tables (src/db/schema.ts), compute_deadline in ai/lawai_ai/agent/deadlines.py and src/lib/deadlines.ts. Gap stated in deadlines.py: court holidays are not applied, so a holidays table is required. Data source is an open assumption.
+Feasibility in the existing code: Feasible: deadline_rules and jurisdictions tables (src/db/schema.ts), compute_deadline in ai/lawai_ai/agent/deadlines.py and src/lib/deadlines.ts. Gap stated in deadlines.py: court holidays are not applied, so a per-court holidays table is required. Data source is decided: free official government sources; licence and update cadence of each source are still recorded per record (ASSUMPTION-72fd9ed0 resolved for source choice, not for accuracy).
 
 Functional requirements
 
-- FR-6: Ship a seed set of Indian deadline_rules (Limitation Act 1963 schedule periods, CPC appeal and written-statement periods) each with a statutory citation and trigger event, loadable per firm jurisdiction.
-- FR-7: Ship a statute library of selected Indian bare acts, chunked and searchable by section number and text through the existing retrieval, each record carrying act, section, version and source URL.
-- FR-8: Provide an IPC to BNS mapping table (old section, new section, change note) searchable in both directions and shown in research answers when either section is cited.
-- FR-9: The deadline calculator must apply Indian court holidays and weekend roll-forward from a per-court holiday table, and must show the rule, citation and any exclusion (for example Section 12 Limitation Act time exclusion) it applied.
-- FR-10: Every pack record has a provenance field (source, retrieval date, reviewer) and every pack deadline rule is marked as reviewed by a qualified lawyer before it is enabled.
+- FR-6: Define a jurisdiction pack as a versioned, country-keyed bundle of deadline_rules, statute records and court holidays, loadable per firm jurisdiction. Ship the India pack seed: Indian deadline_rules (Limitation Act 1963 schedule periods, CPC appeal and written-statement periods) each with a statutory citation and trigger event. Adding another country requires only new pack data, not code changes.
+- FR-7: The India pack includes a statute library of selected Indian bare acts taken from India Code, chunked and searchable by section number and text through the existing retrieval, each record carrying country, act, section, version and source URL.
+- FR-8: The India pack provides an IPC to BNS mapping table (old section, new section, change note; also CrPC to BNSS and Evidence Act to BSA) searchable in both directions and shown in research answers when either section is cited. This mapping is India-specific content, not part of the generic pack format.
+- FR-9: The deadline calculator must apply the pack's per-court holidays (India: official court holiday lists) and weekend roll-forward, and must show the rule, citation and any exclusion (for example Section 12 Limitation Act time exclusion) it applied.
+- FR-10: Every pack record has a provenance field (official source URL, licence, retrieval date, reviewer) and every pack deadline rule is marked as reviewed by a qualified lawyer before it is enabled.
 
 Non-functional requirements
 
@@ -88,12 +88,13 @@ Acceptance criteria
 
 - AC-4: Computing a limitation deadline for a seed rule on a trigger date adjacent to a listed court holiday yields the next working day and shows the holiday in the explanation.
 - AC-5: Searching 'Section 420 IPC' returns the BNS equivalent from the mapping; searching a BNS section returns the IPC predecessor.
-- AC-6: Every seeded deadline rule and statute record has a non-empty citation and source; a test fails otherwise.
+- AC-6: Every seeded deadline rule and statute record has a non-empty citation and official source; a test fails otherwise. A test pack for a second (fixture) country loads and computes a deadline with no code change.
 
 Non-goals for this feature
 
 - Does not provide legal advice or guarantee limitation computations; the user confirms every deadline.
-- Does not cover state-specific rules or case-law reporters in the first release.
+- Does not use paid or unofficial legal databases, and does not cover state-specific rules or case-law reporters in the first release.
+- Does not ship packs for countries other than India in the first release; only the pluggable format is required.
 
 ### Feature 3: Service-to-calendar autopilot
 
@@ -187,7 +188,7 @@ Non-goals for this feature
 
 ### Feature 6: Firm-memory playbooks
 
-The system learns from the edits lawyers accept or reject in reviews and proposes new or changed playbook rules (playbook_rules); a partner approves each rule before it applies. Users: attorneys (feedback), partners and admins (approval). Why it matters: firm know-how stays in the firm and improves reviews without any retraining on client data.
+The system learns from the edits lawyers accept or reject in reviews and proposes new or changed playbook rules (playbook_rules); a firm admin approves each rule before it applies. Users: attorneys (feedback), firm admins (approval). Why it matters: firm know-how stays in the firm and improves reviews without any retraining on client data.
 
 Feasibility in the existing code: Feasible: playbook_rules and document_issues (status open/accepted/dismissed) exist in src/db/schema.ts; review.py loads playbook_rules per firm and document kind.
 
@@ -195,7 +196,7 @@ Functional requirements
 
 - FR-26: Capture accepted and dismissed document_issues with the user's edits as signals tied to the playbook rule and document kind.
 - FR-27: Periodically or on demand, propose draft rules or edits to existing rules, each with the supporting examples (counts and references) shown to the approver.
-- FR-28: A proposed rule has no effect on reviews until an admin or designated partner approves it; approval and rejection are logged.
+- FR-28: A proposed rule has no effect on reviews until the firm admin approves it; approval and rejection are logged.
 - FR-29: Proposed rules are scoped to the firm and never shared across firms.
 - FR-30: Approved rules can be edited, disabled and rolled back to a prior version.
 
@@ -277,14 +278,14 @@ Non-goals for this feature
 
 ### Feature 9: Client status portal
 
-A read-only portal for end-clients showing partner-approved, plain-language status updates on their own matters, next hearing date and documents the firm chooses to share. Users: end-clients (read), attorneys and partners (author and approve). Why it matters: clients ask 'what is happening' constantly; approved updates reduce calls and raise trust without exposing the workspace.
+A read-only portal for end-clients showing firm-admin-approved, plain-language status updates on their own matters, next hearing date and documents the firm chooses to share. Users: end-clients (read), attorneys (author), firm admins (approve). Why it matters: clients ask 'what is happening' constantly; approved updates reduce calls and raise trust without exposing the workspace.
 
 Feasibility in the existing code: Feasible with new work: schema has clients and cases and a three-value user role (src/db/schema.ts roleEnum), so a new principal type, approval state and session path are required; proxy.ts and src/lib/auth.ts must route portal sessions.
 
 Functional requirements
 
 - FR-41: Add an end-client role limited to a client portal, authenticated separately from firm users, and bound to one or more clients records.
-- FR-42: The AI drafts a plain-language update for a matter; the update becomes visible to the client only after an attorney or partner approves it, and each update shows its approver and time.
+- FR-42: The AI drafts a plain-language update for a matter; the update becomes visible to the client only after the firm admin approves it, and each update shows its approver and time.
 - FR-43: The portal shows only approved updates, the next approved hearing date and documents explicitly shared; it never shows internal notes, tasks, AI chats, other clients or unapproved drafts.
 - FR-44: Approved updates can be retracted, which removes them from the portal and logs the action.
 - FR-45: Client invitations are issued by the firm and revocable; portal sessions are logged.
@@ -313,7 +314,7 @@ Feasibility in the existing code: Feasible with new work: documents and draft ro
 
 Functional requirements
 
-- FR-46: Export a draft to DOCX and PDF with court-format settings (page size, margins, numbering, line spacing) selectable per court profile.
+- FR-46: Export a draft to DOCX and PDF with court-format settings (page size, margins, numbering, line spacing) selectable per court profile. Profiles are delivered in this order: Supreme Court of India first, then Delhi High Court, then Bombay High Court (DECISION-4c1e3d08).
 - FR-47: Generate a Table of Authorities from the draft's citations with the page numbers where each appears.
 - FR-48: Include in the Table of Authorities only Verified citations; Unverified citations are listed in a separate pre-export warning the user must acknowledge, and are not placed in the table.
 - FR-49: The export records the document version hash and links to the verification certificate from Feature 1.
@@ -350,10 +351,25 @@ All NFR-* items appear inside the feature groups above and in the cross-cutting 
 
 All AC-* items appear inside the feature groups above and in the cross-cutting group.
 
+## Build order
+
+Decided by the product owner on 2026-10-19 (DECISION-8949e592). Rationale: trust first, then the local moat, then workflows that reuse those foundations, with the heaviest ML/OCR work last. Feature numbers and requirement IDs keep their original labels; this is the delivery order.
+
+1. Feature 1: Cite-Proof ledger
+2. Feature 2: Jurisdiction Packs (India first)
+3. Feature 3: Service-to-calendar autopilot
+4. Feature 4: Hearing-day brief
+5. Feature 8: AI time capture
+6. Feature 5: Ethical-wall receipts
+7. Feature 9: Client status portal
+8. Feature 10: Courtroom-ready export
+9. Feature 6: Firm-memory playbooks
+10. Feature 7: Hindi/English documents
+
 ## Constraints
 
 - Existing stack: Next.js 16 app, Python AI service, Postgres 16 with pgvector, R2/S3 storage (docs/ARCHITECTURE.md). Next.js here has breaking changes; follow node_modules/next/dist/docs/ (AGENTS.md).
-- India first: legal content, holidays and statutes must come from sources whose provenance and licence are recorded.
+- India first, not India only: legal content, holidays and statutes come from free official government sources whose provenance and licence are recorded, behind a country-pluggable pack format (Feature 2).
 - DPDP Act 2023 applies to client personal data; model providers that process content must be disclosed in the ethical-wall receipt.
 - This phase is specification only: no product code, plan or tasks until the user approves the specification and plan.
 - Process rules: see RULE-5, RULE-6, RULE-7.
@@ -364,22 +380,19 @@ All AC-* items appear inside the feature groups above and in the cross-cutting g
 - No certification that cited authority is good law.
 - No client-facing AI chat, billing, invoicing or payments.
 - No model fine-tuning on client data.
-- Jurisdictions other than India, and languages other than Hindi and English, are out of scope for this release.
+- Shipping packs for countries other than India, and languages other than Hindi and English, are out of scope for this release (the pack format itself is in scope).
 
 ## Risks
 
-- Inaccurate Indian legal data or deadline rules: mitigated by provenance, lawyer review before a rule is enabled, and mandatory human confirmation of every deadline.
+- Inaccurate legal data in a pack or deadline rules: mitigated by provenance, lawyer review before a rule is enabled, and mandatory human confirmation of every deadline.
 - Hindi OCR and retrieval quality may be insufficient: mitigated by confidence flags, user correction and a measured acceptance threshold before commitment.
 - Over-reliance on Verified labels: mitigated by plain wording that the label means existence and quote match only.
 - Portal data leakage: mitigated by a separate read model and approval-state filter (Feature 9).
-- Scope: ten features are large; sequencing is for the plan phase, not decided here.
+- Scope: ten features are large; mitigated by the fixed build order below.
 
 ## Open questions
 
-- Is the objective statement correct as drafted? (Not yet set in the Genesis ledger; no command for it exists.)
-- Which source supplies Indian statutes, limitation rules and court holidays, and under what licence?
+Answered on 2026-10-19 (objective, legal data source, approver, build order, court order) are recorded as decisions DECISION-2bff3c26, DECISION-348aa7bb, DECISION-8cad9c43, DECISION-8949e592 and DECISION-4c1e3d08. Still open:
+
 - Which OCR engine and which multilingual embedding model for Hindi legal text?
-- Who is the "partner" approver: the admin role, or a new role?
-- Release priority and order of the ten features.
-- Which courts' formatting profiles come first for the courtroom export?
 - Data retention periods for logs and portal content.

@@ -2,7 +2,7 @@
 
 LawAI is a matter-centric legal AI workspace for small and mid-size law firms, India first, whose answers and citations are verifiable. It combines matters, clients, documents, a calendar, tasks and time entries with AI features (document Q&A with citations, playbook-based contract review, drafting, legal research and deadline calculation). Access to everything, including every AI tool, follows matter staffing. This document is a set of rules and an explanation of the features: what exists today, what is planned, and the rules that bind both.
 
-> Objective (draft, to be confirmed): LawAI is a matter-centric legal AI workspace for small and mid-size law firms, India first, whose answers and citations are verifiable.
+> Objective (confirmed by the product owner, 2026-10-19): LawAI is a matter-centric legal AI workspace for small and mid-size law firms, India first, whose answers and citations are verifiable.
 
 Related files: [SPEC.md](../SPEC.md) (requirements, with stable FR/NFR/AC IDs), `docs/ARCHITECTURE.md`, `docs/features.html` and `docs/usp-ideas.html` (the sources of this document).
 
@@ -21,11 +21,11 @@ Related files: [SPEC.md](../SPEC.md) (requirements, with stable FR/NFR/AC IDs), 
 
 | Role | Description | Status |
 |---|---|---|
-| Platform operator | Runs the service across firms: onboards firms, manages plans, seats, suspension and renewals, and platform-level data. | Existing |
-| Firm admin | Manages users, staffing, playbook rules, firm settings and sees every matter in the firm. | Existing |
+| Platform operator | Runs the service across firms: onboards firms (each firm admin then creates its attorneys, associates and paralegals), manages plans, seats, suspension and renewals, and platform-level data. | Existing |
+| Firm admin | Manages users, staffing, playbook rules, firm settings and sees every matter in the firm. Is the approver for client portal updates and playbook rules; there is no separate Partner role. | Existing |
 | Attorney | Works on staffed matters; can open matters, set status, finalise or delete documents, see reports, and reviews and approves AI output. | Existing |
 | Paralegal | Prepares documents, tasks and deadlines on staffed matters; limited to draft/in-review document statuses; cannot see firm reports. | Existing |
-| End-client | Read-only portal user who sees only partner-approved updates for their own matters. | Planned (Feature 9) |
+| End-client | Read-only portal user who sees only firm-admin-approved updates for their own matters. | Planned (Feature 9) |
 
 Matter access equals staffing (`case_members`), except that admins see every matter. This is enforced in `src/lib/access.ts` and `ai/lawai_ai/access.py`.
 
@@ -38,7 +38,7 @@ These rules bind every feature, current and planned. RULE-1 to RULE-5 are produc
 | RULE-1 | The AI never presents an unverified citation as verified. A Verified label is set only by deterministic code that finds the authority and, for quotes, the exact text; never by the model. |
 | RULE-2 | The AI drafts; a human approves anything that leaves the firm or changes a calendar, task, time entry or bill. |
 | RULE-3 | Tenant isolation. No data crosses firms, and within a firm no data crosses matters the user is not staffed on. The filter is applied in the same query as retrieval. |
-| RULE-4 | The client portal shows only partner-approved content for the client's own matters. |
+| RULE-4 | The client portal shows only firm-admin-approved content for the client's own matters. |
 | RULE-5 | Secrets are never stored in the repository. Configuration comes from environment variables; `.env` files stay git-ignored. |
 | RULE-8 | Every AI-derived statement shown to a user links to its source or is omitted. Machine translations are labelled and never count as verification. |
 | RULE-9 | Learned firm rules apply only after approval, and only within the firm that produced them. |
@@ -124,7 +124,7 @@ Process rules (commit messages, repository hygiene) are under [Contributing](#co
 |---|---|---|---|---|---|
 | Library and upload | List and upload PDF/DOCX/TXT/MD files; ingestion runs automatically. | Admin, Atty, Para | Upload a signed contract to a matter. | `/documents`, `POST /api/documents/upload` | Working |
 | Document viewer | Text view with status, kind, version and size; ask-about-this-document, download, retry failed ingestion. | Admin, Atty, Para | Read a contract and jump to a cited clause. | `/documents/[id]`, `GET /api/documents/[id]/file` | Working |
-| Playbook AI review | Run review against the firm's playbook; issues flagged per clause; accept (creates a new version and re-indexes) or dismiss. | Admin, Atty, Para | Redline a vendor contract before the partner sees it. | `/documents/[id]`, `POST /api/documents/[id]/review` | Working |
+| Playbook AI review | Run review against the firm's playbook; issues flagged per clause; accept (creates a new version and re-indexes) or dismiss. | Admin, Atty, Para | Redline a vendor contract before the senior attorney sees it. | `/documents/[id]`, `POST /api/documents/[id]/review` | Working |
 | Versions and editing | Edit text, save new versions, restore an earlier version, append AI-drafted text. | Admin, Atty, Para | Roll back after a bad edit. | `/documents/[id]` | Working |
 | Document status | Draft, in review, final, signed, filed. Paralegals limited to draft/in review. | Admin, Atty, Para | Mark a contract signed. | `/documents/[id]` | Working |
 | Delete document | Remove a document. | Admin, Atty | Remove a wrongly uploaded file. | `/documents/[id]` | Working |
@@ -135,7 +135,7 @@ Process rules (commit messages, repository hygiene) are under [Contributing](#co
 |---|---|---|---|---|---|
 | Drafting and review hub | Lists documents in draft or review and creates new AI-drafted documents. | Admin, Atty, Para | Draft an NDA from a short prompt and save it to a matter. | `/drafting`, `POST /api/draft` | Working |
 | Legal research | Hybrid search over a legal-sources library filtered by jurisdiction, with a cited AI summary and recent research history. Seeded sample library only. | Admin, Atty, Para | Quick check of authorities on a point of law. | `/research`, `POST /api/research` | Partial |
-| Reports | Quarter / last quarter / YTD: billable hours per week, open matters by practice area, utilisation vs weekly target, LawAI usage and hours saved. Hours saved uses admin-set assumptions, not measured time. | Admin, Atty | A partner reviews utilisation and ROI of the AI. | `/reports` | Working |
+| Reports | Quarter / last quarter / YTD: billable hours per week, open matters by practice area, utilisation vs weekly target, LawAI usage and hours saved. Hours saved uses admin-set assumptions, not measured time. | Admin, Atty | A firm admin reviews utilisation and ROI of the AI. | `/reports` | Working |
 
 ### Settings and firm admin (4)
 
@@ -173,22 +173,22 @@ Process rules (commit messages, repository hygiene) are under [Contributing](#co
 
 ## Planned features
 
-Ten features make LawAI trustworthy and India-ready. All are **Planned**; none is built. Requirement IDs (FR, NFR, AC) and non-goals for each are in [SPEC.md](../SPEC.md). Sequencing is decided in the plan phase. Features 1 to 3 are the top picks.
+Ten features make LawAI trustworthy and India-ready, and ready for other countries. All are **Planned**; none is built. Requirement IDs (FR, NFR, AC) and non-goals for each are in [SPEC.md](../SPEC.md). The table below is in build order, decided by the product owner on 2026-10-19: trust first, then the local moat, then workflows that reuse those foundations, with the heaviest ML/OCR work last. The # column is the build position; the Feature label in parentheses is the stable number used in SPEC.md.
 
 | # | Feature | What | Who | Why it differentiates | Requirements | Status |
 |---|---|---|---|---|---|---|
-| 1 | Cite-Proof ledger (top pick) | Every claim and citation in an AI answer, draft or review gets a Verified or Unverified label set by deterministic code, with an exportable verification certificate (PDF) that goes stale if the document changes. | Attorneys, paralegals; admins set certificate policy | Others market "grounded" answers but show no per-claim result; one study found 17-33% hallucination even in leading tools. Quote checking already exists in `review.py`. | FR-1 to FR-5 | Planned |
-| 2 | India Pack (top pick) | Indian limitation and CPC/CrPC deadline rules, a bare-acts statute library, an IPC to BNS (also CrPC to BNSS, Evidence Act to BSA) mapping, and court holidays in the deadline calculator. Every record carries provenance and lawyer review. | Attorneys, paralegals in Indian firms | Global leaders are US/UK-first; Indian rivals focus on research or contract management, not matter workflow. A defensible local moat. | FR-6 to FR-10 | Planned |
-| 3 | Service-to-calendar autopilot (top pick) | On upload of a notice, summons or order, extract dates with source quotes, compute deadlines and propose tasks and events for the staffed team. Nothing is written until a human confirms. | Paralegals, attorneys | Joins document ingestion to the deadline engine and staffing, which only a matter-centric product can do. | FR-11 to FR-15 | Planned |
-| 4 | Hearing-day brief | A one-page, source-linked brief per upcoming hearing: summary, last order, open tasks, deadlines, key documents and cited authorities. | Attorney appearing, paralegals | Competitors answer questions; few push a ready brief proactively. | FR-16 to FR-20 | Planned |
-| 5 | Ethical-wall receipts | Per-matter report of what the AI could and did access, built from an append-only, hash-chained log, with proof that staff outside the matter were excluded and the model providers that processed content. | Firm admins, data protection contact | Access control is rarely demonstrable per answer; supports DPDP Act 2023 questions from clients. | FR-21 to FR-25 | Planned |
-| 6 | Firm-memory playbooks | Learns from accepted and dismissed review issues and proposes playbook rules; an admin or partner approves each rule before it applies. No model retraining. | Attorneys (feedback), partners and admins (approval) | Competitors ship generic playbooks; few learn from the firm's own edits. | FR-26 to FR-30 | Planned |
-| 7 | Hindi/English documents | OCR for scanned pages, cross-language retrieval, and summaries labelled as machine translations. Citations always refer to original-language text. | Everyone handling Indian court papers | Western tools handle Indian languages weakly; Indian tools rarely combine them with firm-private retrieval. Removes the current scanned-PDF limitation. | FR-31 to FR-35 | Planned |
-| 8 | AI time capture | Drafts billable time entries from the day's activity, with evidence, for the lawyer to edit and approve. | Attorneys, paralegals; admins for billing | Billing vendors capture time but not from AI conversations and documents tied to matters. | FR-36 to FR-40 | Planned |
-| 9 | Client status portal | Read-only portal with partner-approved, plain-language updates, the next hearing date and shared documents. Introduces the end-client role. | End-clients (read); attorneys, partners (approve) | Enterprise tools are lawyer-only; approved updates reduce status calls without exposing the workspace. | FR-41 to FR-45 | Planned |
-| 10 | Courtroom-ready export | Export a draft to DOCX/PDF in court format with an index and a Table of Authorities built only from Verified citations. | Attorneys finalising filings | Few tools output paginated, cite-checked drafts. Depends on Feature 1. | FR-46 to FR-50 | Planned |
+| 1 | Cite-Proof ledger (Feature 1) | Every claim and citation in an AI answer, draft or review gets a Verified or Unverified label set by deterministic code, with an exportable verification certificate (PDF) that goes stale if the document changes. | Attorneys, paralegals; admins set certificate policy | Others market "grounded" answers but show no per-claim result; one study found 17-33% hallucination even in leading tools. Quote checking already exists in `review.py`. | FR-1 to FR-5 | Planned |
+| 2 | Jurisdiction Packs, India first (Feature 2) | A pluggable per-country pack of statutes, limitation rules and court holidays from free official government sources. The India pack (first) uses India Code and official court holiday lists, adds Indian limitation and CPC/CrPC deadline rules and an IPC to BNS (also CrPC to BNSS, Evidence Act to BSA) mapping. Every record carries provenance and lawyer review; other countries are added the same way. | Attorneys, paralegals; platform operator maintains packs | Global leaders are US/UK-first; Indian rivals focus on research or contract management, not matter workflow. A defensible local moat that can follow firms into other countries. | FR-6 to FR-10 | Planned |
+| 3 | Service-to-calendar autopilot (Feature 3) | On upload of a notice, summons or order, extract dates with source quotes, compute deadlines and propose tasks and events for the staffed team. Nothing is written until a human confirms. | Paralegals, attorneys | Joins document ingestion to the deadline engine and staffing, which only a matter-centric product can do. | FR-11 to FR-15 | Planned |
+| 4 | Hearing-day brief (Feature 4) | A one-page, source-linked brief per upcoming hearing: summary, last order, open tasks, deadlines, key documents and cited authorities. | Attorney appearing, paralegals | Competitors answer questions; few push a ready brief proactively. | FR-16 to FR-20 | Planned |
+| 5 | AI time capture (Feature 8) | Drafts billable time entries from the day's activity, with evidence, for the lawyer to edit and approve. | Attorneys, paralegals; admins for billing | Billing vendors capture time but not from AI conversations and documents tied to matters. | FR-36 to FR-40 | Planned |
+| 6 | Ethical-wall receipts (Feature 5) | Per-matter report of what the AI could and did access, built from an append-only, hash-chained log, with proof that staff outside the matter were excluded and the model providers that processed content. | Firm admins, data protection contact | Access control is rarely demonstrable per answer; supports DPDP Act 2023 questions from clients. | FR-21 to FR-25 | Planned |
+| 7 | Client status portal (Feature 9) | Read-only portal with firm-admin-approved, plain-language updates, the next hearing date and shared documents. Introduces the end-client role. | End-clients (read); attorneys (author), firm admins (approve) | Enterprise tools are lawyer-only; approved updates reduce status calls without exposing the workspace. | FR-41 to FR-45 | Planned |
+| 8 | Courtroom-ready export (Feature 10) | Export a draft to DOCX/PDF in court format with an index and a Table of Authorities built only from Verified citations. Per-court format profiles: Supreme Court of India first, then Delhi High Court, then Bombay High Court. | Attorneys finalising filings | Few tools output paginated, cite-checked drafts. Depends on Feature 1. | FR-46 to FR-50 | Planned |
+| 9 | Firm-memory playbooks (Feature 6) | Learns from accepted and dismissed review issues and proposes playbook rules; the firm admin approves each rule before it applies. No model retraining. | Attorneys (feedback), firm admins (approval) | Competitors ship generic playbooks; few learn from the firm's own edits. | FR-26 to FR-30 | Planned |
+| 10 | Hindi/English documents (Feature 7) | OCR for scanned pages, cross-language retrieval, and summaries labelled as machine translations. Citations always refer to original-language text. | Everyone handling Indian court papers | Western tools handle Indian languages weakly; Indian tools rarely combine them with firm-private retrieval. Removes the current scanned-PDF limitation. | FR-31 to FR-35 | Planned |
 
-Cross-cutting requirements (FR-51, FR-52, NFR-21, AC-31) enforce human approval, firm and matter filtering, and no committed secrets across all ten features. Global non-goals: no legal advice, outcome prediction or court filing; no certification that cited authority is good law; no client-facing AI chat, billing or payments; no model fine-tuning on client data; jurisdictions other than India and languages other than Hindi and English are out of scope for this release.
+Cross-cutting requirements (FR-51, FR-52, NFR-21, AC-31) enforce human approval, firm and matter filtering, and no committed secrets across all ten features. Global non-goals: no legal advice, outcome prediction or court filing; no certification that cited authority is good law; no client-facing AI chat, billing or payments; no model fine-tuning on client data; packs for countries other than India and languages other than Hindi and English are out of scope for this release (the pluggable pack format is in scope).
 
 ## Competitive landscape
 
@@ -213,12 +213,9 @@ Summary: the market is split between US/UK enterprise tools priced out of reach 
 
 ## Open questions
 
-- Is the objective statement correct as drafted?
-- Which source supplies Indian statutes, limitation rules and court holidays, and under what licence?
+Answered by the product owner on 2026-10-19: the objective is confirmed; legal data comes from free official government sources with a country-pluggable pack format; the firm admin is the approver (no Partner role); the build order is fixed (see Planned features); court export profiles go Supreme Court of India, Delhi High Court, Bombay High Court. Still open:
+
 - Which OCR engine and which multilingual embedding model for Hindi legal text?
-- Who is the "partner" approver: the admin role, or a new role?
-- Release priority and order of the ten features.
-- Which courts' formatting profiles come first for the courtroom export?
 - Data retention periods for logs and portal content.
 
 ## Contributing
