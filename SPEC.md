@@ -5,7 +5,7 @@
 
 ## Problem
 
-Small and mid-size law firms cannot afford enterprise legal AI (competitor landscape and pricing in Genesis record KNOWLEDGE-0ab68aaf and docs/usp-ideas.html), and general AI tools produce citations a lawyer cannot trust without rechecking. LawAI already provides a matter-centric workspace (see docs/features.html and docs/ARCHITECTURE.md): matters with staffing-based access, documents with retrieval, review against playbook rules, research, drafting, calendar, tasks and time entries. This specification describes the sixteen features that make it trustworthy and India-ready (and ready for other countries), and the rules that bind all of them. Features 1 to 10 were approved first; Features 11 to 16 were added on 2026-10-19 at the product owner's request (Hearing reminders, DECISION-bd89e06d) and after a gap check against Indian and global competitors (DECISION-27fee276) and are awaiting the owner's re-approval. Desired outcome: a lawyer can rely on, check and defend every AI-assisted output, and the firm stays in control of everything that leaves it.
+Small and mid-size law firms cannot afford enterprise legal AI (competitor landscape and pricing in Genesis record KNOWLEDGE-0ab68aaf and docs/usp-ideas.html), and general AI tools produce citations a lawyer cannot trust without rechecking. LawAI already provides a matter-centric workspace (see docs/features.html and docs/ARCHITECTURE.md): matters with staffing-based access, documents with retrieval, review against playbook rules, research, drafting, calendar, tasks and time entries. This specification describes the twenty-one features that make it trustworthy and India-ready (and ready for other countries), and the rules that bind all of them. Features 1 to 10 were approved first; Features 11 to 16 were added on 2026-10-19 at the product owner's request (Hearing reminders, DECISION-bd89e06d) and after a gap check against Indian and global competitors (DECISION-27fee276); Features 17 to 21 were added on 2026-10-19 after a check of docs/usp-ideas.html and a sell-ability review (Notice and court-paper templates, Firm precedent bank, Client intake link, Fee notes and GST invoices, Version compare and counterparty redline; the decision record is listed under Build order), together with small additions to Features 1, 4, 5, 7 and 10. Features 11 to 21 await the owner's re-approval. Desired outcome: a lawyer can rely on, check and defend every AI-assisted output, and the firm stays in control of everything that leaves it.
 
 ## Users
 
@@ -13,7 +13,8 @@ Small and mid-size law firms cannot afford enterprise legal AI (competitor lands
 - Firm admin: creates the firm's attorneys, associates and paralegals, and manages staffing, playbooks, privacy reports and all approvals for one firm; the firm admin is the approver wherever this specification previously said partner. There is no separate Partner role (DECISION-8cad9c43; existing role admin).
 - Attorney: works on staffed matters, reviews and approves AI output (existing role attorney).
 - Paralegal: prepares documents, tasks and deadlines on staffed matters (existing role paralegal).
-- End-client: new, read-only portal user who sees only firm-admin-approved updates for their own matters (Feature 9); may also receive firm-admin-approved hearing reminders and updates by email or WhatsApp (Features 11 and 16).
+- Prospective client: a person the firm has already spoken to, who opens a private intake link and fills one form (Feature 19); has no account, login or access to anything else.
+- End-client: new, read-only portal user who sees only firm-admin-approved updates for their own matters (Feature 9); may also receive firm-admin-approved hearing reminders and updates by email or WhatsApp (Features 11 and 16), and invoices a person at the firm chooses to send (Feature 20).
 
 Access to a matter equals staffing (case_members) except for admins; this is unchanged (src/lib/access.ts, ai/lawai_ai/access.py).
 
@@ -48,6 +49,8 @@ Functional requirements
 - FR-3: The verdict is produced by code, never by the language model; the model may propose citations but cannot set a label.
 - FR-4: A user can export a verification certificate (PDF) for a document listing each citation, its label, the matched source, the check method, the timestamp and the document version hash.
 - FR-5: Editing a document after certification marks the certificate stale and shows which citations changed.
+- FR-93: An Unverified label states its reason, decided by code: "Not in library" when the cited authority is not among the firm's accessible sources, so the check could not run, and "Quote differs" when the authority is found but the quoted text is not verbatim in it. A third state never replaces Verified or Unverified; both reasons are Unverified (docs/usp-ideas.html idea 1, KNOWLEDGE-51575b5e).
+- FR-94: In chat, research and draft answers, each sentence the model writes that states a fact carries a source tag linking to a retrieved passage the user can access, or is shown as "No source". The tag shows that a source was retrieved and linked; it is not the Verified label and does not claim the passage supports the sentence (RULE-8).
 
 Non-functional requirements
 
@@ -59,6 +62,8 @@ Acceptance criteria
 - AC-1: Given a draft containing one citation present in legal_sources and one invented citation, the first is labelled Verified and the second Unverified, in a test with no model call deciding the label.
 - AC-2: Given a quote altered by one word from the source text, the citation is Unverified; given an exact quote, Verified (extends the verbatim `original_text in doc['content']` check in ai/lawai_ai/review.py).
 - AC-3: The exported certificate lists every citation of the document with the label shown in the UI, and shows stale after the document text changes.
+- AC-55: A citation to an authority absent from the library shows Unverified with the reason "Not in library"; a citation to a present authority with a one-word-altered quote shows Unverified with the reason "Quote differs".
+- AC-56: In a test answer with one sentence that has a retrieved source and one that has none, the first shows a source link and the second shows "No source"; neither is labelled Verified.
 
 Non-goals for this feature
 
@@ -139,6 +144,7 @@ Functional requirements
 - FR-18: Citations in the brief carry Cite-Proof labels (Feature 1).
 - FR-19: The brief is exportable as a single printable page and is visible only to staffed users.
 - FR-20: Regenerating after new data shows a changed-since marker rather than silently overwriting.
+- FR-95: A staffed user can have the brief emailed to themselves and to the other staffed attendees of the hearing; the email carries a link to the brief and the hearing details only, never document text, and goes only to users staffed on the matter (docs/usp-ideas.html idea 4). This is an internal message and does not change the non-goal on sending outside the firm.
 
 Non-functional requirements
 
@@ -150,6 +156,7 @@ Acceptance criteria
 - AC-10: For a matter with a hearing tomorrow, a brief exists containing the hearing, at least the open tasks and deadlines that the database holds, each with a source link.
 - AC-11: A non-staffed user receives not-found for the brief.
 - AC-12: Each sentence of model-written content in the brief maps to at least one source reference or is omitted.
+- AC-57: A brief emailed from a matter reaches only users staffed on it, contains a link and no document text, and a non-staffed address is refused.
 
 Non-goals for this feature
 
@@ -169,6 +176,7 @@ Functional requirements
 - FR-23: The receipt states the model providers that processed content and the retention applied.
 - FR-24: Admins can generate the receipt; it is itself logged in activities.
 - FR-25: Receipt contents are generated from stored logs, never from model output.
+- FR-96: Each AI answer shows the asking user a "what this answer used" panel listing the matters and documents it retrieved from, taken from the FR-21 log, and a firm admin can open the same panel for any answer in the firm; the panel contains identifiers and titles, not document text (docs/usp-ideas.html idea 5).
 
 Non-functional requirements
 
@@ -180,6 +188,7 @@ Acceptance criteria
 - AC-13: After a staffed user asks the AI a question on a matter, the receipt lists that call and the retrieved documents; an unstaffed user's attempted access appears as denied.
 - AC-14: Attempting to update or delete a log row via the application database role fails.
 - AC-15: The receipt for a matter contains no document text, only identifiers and titles.
+- AC-58: For an answer drawn from two documents of one matter, the panel lists those two documents and nothing else; the admin sees the same list; a user cannot open the panel of another user's answer.
 
 Non-goals for this feature
 
@@ -229,6 +238,7 @@ Functional requirements
 - FR-33: A document summary can be requested in English or Hindi, labelled as a machine translation, with the source language shown.
 - FR-34: Citations and quotes always refer to the original-language text; a translated passage is never used to mark a citation Verified.
 - FR-35: Users can view and correct OCR text; corrections re-trigger indexing.
+- FR-97: Store a detected language tag (English, Hindi or mixed) on each document and each chunk, show it in the document viewer, and allow it as a search filter; the tag can be corrected by a user (docs/usp-ideas.html idea 7).
 
 Non-functional requirements
 
@@ -240,6 +250,7 @@ Acceptance criteria
 - AC-19: A scanned sample PDF that currently fails with 'No text layer' is ingested and searchable.
 - AC-20: On a labelled set of 30 bilingual query/passage pairs, the right passage is in the top 5 results for at least 80 percent of queries (threshold to be confirmed after the model trial).
 - AC-21: A translated summary shows the machine-translation label; a quote check against a translated string never returns Verified.
+- AC-59: A bilingual sample document shows a mixed tag and its Hindi chunks carry the Hindi tag; filtering by Hindi returns only Hindi chunks.
 
 Non-goals for this feature
 
@@ -319,6 +330,7 @@ Functional requirements
 - FR-48: Include in the Table of Authorities only Verified citations; Unverified citations are listed in a separate pre-export warning the user must acknowledge, and are not placed in the table.
 - FR-49: The export records the document version hash and links to the verification certificate from Feature 1.
 - FR-50: Export is a user-triggered action by a staffed user and is logged in activities.
+- FR-98: The user can mark documents as annexures of a draft in an order, and the export includes an annexure index (label, title, page range) matching the rendered pages (docs/usp-ideas.html idea 10).
 
 Non-functional requirements
 
@@ -330,6 +342,7 @@ Acceptance criteria
 - AC-28: Exporting a draft with 5 Verified and 1 Unverified citation yields a Table of Authorities with 5 entries, and the Unverified citation appears only in the warning.
 - AC-29: For a sample draft, every page number in the Table of Authorities matches the page on which the citation actually appears in the PDF.
 - AC-30: An unstaffed user cannot export the draft.
+- AC-60: A draft with three marked annexures exports with an annexure index whose labels, order and page ranges match the PDF.
 
 Non-goals for this feature
 
@@ -541,6 +554,174 @@ Non-goals for this feature
 - Does not send marketing messages or any message that the firm admin has not approved.
 - Does not use the lawyers' personal WhatsApp numbers.
 
+### Feature 17: Notice and court-paper templates
+
+A library of Indian starter templates for the papers a litigation practice produces over and over: a legal notice, a reply to a notice, a Section 138 Negotiable Instruments Act cheque-bounce demand notice, a vakalatnama, and a draft affidavit. The user picks a matter and a template; the parties, court, case number and dates are filled from the matter record, every blank that is not known stays visibly blank, and a limitation clock shows the dates that matter. For a Section 138 notice that means the last day to send the notice (30 days from when the drawee bank's return information is received), the end of the 15-day payment period (counted from receipt of the notice), and the last day to file the complaint (one month from the day that period lapses), each with the section it came from (KNOWLEDGE-48d74715). Statute references in a template are checked against the statute library of the India pack (Feature 2) so a template cannot carry a citation the system cannot find. The lawyer reviews and approves the paper; sending or serving it, and swearing an affidavit, stay with the lawyer outside LawAI. Users: attorneys and paralegals; platform operator (maintains the starter set); firm admins (firm-specific copies). Why it matters: Section 138 notices are a high-volume, deadline-driven staple for small Indian firms, and online services now sell a drafted notice from about Rs 1,499 (KNOWLEDGE-48d74715), so a firm that can produce a correct one in minutes, with the dates counted and checkable, keeps the work it would otherwise lose to those services. It also shows the India pack at work on the first day: a limitation rule, a statute citation and a deadline proposal in one screen.
+
+Feasibility in the existing code: Feasible. The matter, party and court fields exist (cases.court, cases.case_number, cases.opposing_party, clients in src/db/schema.ts); drafting and saving a draft as a document exist (ai/lawai_ai/draft.py, src/app/api/draft/route.ts); the date arithmetic is the pattern of compute_deadline (ai/lawai_ai/agent/deadlines.py, src/lib/deadlines.ts) and needs Feature 2's pack format and holiday table; the proposal-and-confirm path is Feature 3's; the citation check is Feature 1's. New: a template record type in the pack format (template text with named fields, source citations, review mark), a fill step, and a DOCX/PDF render (shared with Feature 10 when it exists; a plain DOCX until then). The legal accuracy of the starter templates and of the Section 138 counting (service date, holidays, condonation) depends on a qualified lawyer's review (ASSUMPTION-6658a5ec). Dates computed here are proposals, not filings.
+
+Functional requirements
+
+- FR-99: Provide a template library with two layers: platform starter templates delivered through the jurisdiction pack (versioned, each with provenance and a qualified-lawyer review mark, FR-10, read-only for firms) and firm templates that a firm admin copies from a starter template or writes, editable only inside that firm. A starter template without a review mark is not offered. The first release ships five: legal notice, reply to notice, Section 138 demand notice, vakalatnama and affidavit draft.
+- FR-100: Filling a template for a matter takes values from the matter, client and opposing-party records and from fields the user types; each filled value shows where it came from; a field with no known value stays a visible blank and is never invented or guessed by a model.
+- FR-101: For a Section 138 notice the user enters the cheque details and the dates the bank's return information and the notice were received; the system computes the last day to send the notice, the end of the payment period and the last day to file the complaint by a pure function over the pack rules, applying the pack's court holidays where the rule says to, and shows each rule, its citation and any exclusion applied (extends FR-9).
+- FR-102: The limitation clock shows each date as open, closing within a configurable number of days, or passed, and warns before a notice is generated when an entered date makes a step already late; the computed dates can be offered as proposed events and tasks through the Feature 3 path, and nothing is written to the calendar or tasks until a person confirms.
+- FR-103: Every statute or case citation in the generated paper carries a Feature 1 label; a platform template cannot be published if any of its fixed citations cannot be found in the pack statute library. An optional model-written paragraph (for example the narrative of facts) is inserted only when the user asks, is marked as a draft, and cannot change the fixed template text.
+- FR-104: The generated paper is saved as a draft document on the matter with the template id and version; an attorney marks it approved for issue (FR-51), with user and time, before its status can be set to final; export is DOCX and PDF. Generation, edits and approval are logged to activities.
+- FR-105: A vakalatnama or affidavit shows an execution checklist taken from the template's reviewed notes (for example the client's signature, any court-specific welfare stamp or fee, and the oath commissioner or notary for an affidavit), so the lawyer sees what must still happen outside LawAI; where the pack holds no reviewed note for the court, the checklist says so and gives no stamp amount.
+
+Non-functional requirements
+
+- NFR-34: Filling a template and computing its dates completes in under 3 seconds excluding the optional model paragraph, and is reproducible: the same inputs and pack version always give the same dates and text.
+- NFR-35: Template and computation reads use only data inside the requesting user's firm and the matters they are staffed on; firm templates never cross firms.
+
+Acceptance criteria
+
+- AC-61: Given a Section 138 matter with the return-information date, notice-received date and a court holiday falling on the last day of a period, the three dates match a hand-checked value, the holiday and rule appear in the explanation, and a test fails if the arithmetic differs.
+- AC-62: A template filled for a matter with no opposing-party address leaves the address blank and visible; no value in the output lacks a source or a typed origin.
+- AC-63: A starter template without a review mark is not offered; a firm template made by firm A is not visible to firm B; a user not staffed on the matter cannot generate a paper for it.
+
+Non-goals for this feature
+
+- Does not advise whether a notice should be sent, whether a cheque case is maintainable, or whether delay can be condoned; the lawyer decides.
+- Does not send, post, serve or file anything, does not swear or e-sign an affidavit, and does not buy stamps.
+- Does not cover every notice or pleading type, and does not carry state-specific vakalatnama rules beyond what a reviewed pack note records.
+
+### Feature 18: Firm precedent bank
+
+The firm's own best drafts, kept as a searchable, reusable library. An attorney staffed on a matter saves a finished document, or selected clauses, as a precedent; the system lists every place the matter's client, party and counsel names appear so they can be replaced with placeholders; a firm admin approves it; from then on anyone in the firm can find it by plain words and drop its wording into a new draft, with the precedent's name and version shown next to the inserted text. Users: attorneys and paralegals (search and use); attorneys staffed on a matter (submit); firm admins (approve and retire). Why it matters: every firm reuses its old drafts, today by hunting through folders or emailing a senior, and the hunt is where the time and the inconsistency come from; a library built from the firm's own approved wording is what a mid-size firm values most and what no competitor can ship ready-made, because it is built from each firm's own work. Spellbook sells precedent search over a firm's past contracts and Indian rivals report clause libraries (KNOWLEDGE-48d74715; vendor claims); the difference here is that a precedent enters the library only through a named-person approval and a name check, so one client's matter never leaks into another through reuse.
+
+Feasibility in the existing code: Feasible. Retrieval over document chunks with keyword and meaning search exists (ai/lawai_ai/rag/search.py, document_chunks and legal_sources in src/db/schema.ts); document_versions and the drafting mode exist (ai/lawai_ai/draft.py); the approval pattern is the Feature 6 rule queue. New: a precedents table (firm-scoped copy of the text, kind, practice area, jurisdiction, tags, status, approver, review-by date), a deterministic name finder over clients.name, cases.opposing_party and cases.opposing_counsel, and an insertion step with an inline source tag. The central design point is RULE-3: a precedent is a separate, sanitised copy, never a pointer to the original, so staffing on the source matter does not govern it, and the name check plus human approval stand in for that boundary (ASSUMPTION-cbb34f30).
+
+Functional requirements
+
+- FR-106: An attorney staffed on a matter can save a document, or a selection of it, as a precedent; this creates a separate copy owned by the firm with a title, document kind, practice area, jurisdiction, tags and a short note on when to use it. Original documents and their staffing are unchanged.
+- FR-107: Before a precedent can be submitted, the system lists every occurrence of the source matter's client, party and counsel names, and of the client's contact details held on record, found by deterministic matching; the submitter must replace each with a placeholder or confirm it as intended, and a precedent with an unresolved occurrence cannot be submitted.
+- FR-108: A precedent is visible to the firm only after a firm admin approves it; approval records user and time, edits create new versions, and a precedent can be retired (hidden from search and drafting) and restored. Each precedent carries a review-by date (default 12 months) and the admin sees which are past it.
+- FR-109: Search finds approved precedents by words and by meaning, filtered by document kind, practice area and jurisdiction, and shows the matching passage, version and approver. The name or link of the source matter is shown only to users staffed on it.
+- FR-110: In drafting, the user can insert a precedent passage; inserted text is the stored text verbatim and carries an inline tag naming the precedent and version. The model may propose adapting defined terms or party names to the matter only as a visible change the user accepts or rejects; it cannot alter the inserted text silently.
+- FR-111: Each use of a precedent is recorded (who, matter, precedent version, time), the firm admin can see how often each is used, and an ethical-wall receipt (Feature 5) lists precedent use on a matter.
+
+Non-functional requirements
+
+- NFR-36: Precedent search over 5,000 precedents returns in under 2 seconds.
+- NFR-37: Precedents carry firm_id, are never shared across firms or with the platform operator, and are not used to train or fine-tune any model (NFR-11).
+
+Acceptance criteria
+
+- AC-64: A precedent made from a matter whose client is "ABC Traders Pvt Ltd" cannot be submitted while "ABC Traders Pvt Ltd" or the opposing party's name still appears, and can be submitted after each is replaced or confirmed.
+- AC-65: An unapproved or retired precedent is not returned by search or offered in drafting; an approved one is returned to a user who is not staffed on the source matter, with no source-matter name or link.
+- AC-66: A passage inserted from a precedent matches the stored text character for character and shows the precedent and version; a user in firm B finds no precedent from firm A.
+
+Non-goals for this feature
+
+- Does not collect precedents automatically from past matters; each one is submitted and approved by a person.
+- Does not share precedents between firms, sell them, or offer a public clause marketplace.
+- Does not say a precedent is good law, current or suitable for the matter; the lawyer decides.
+- Does not provide a Word add-in in the first release.
+
+### Feature 19: Client intake link
+
+A private link the firm sends to a person who has already contacted it. The person fills in a short form (who they are, who the other side is, what happened in a few lines, the dates they know, the language they prefer) after reading a consent notice written by the firm. The answers land in an intake inbox, not in the client list. LawAI runs the conflict check (Feature 15) on the names in the form straight away, and a staff member reviews the item, then turns it into a client and matter with the fields pre-filled, or declines it. Users: attorneys and paralegals (send the link, review), firm admins (conflict decisions, form and notice settings), the prospective client (fills the form; has no account and no login). Why it matters: first calls are where small firms lose time and miss details; a form the prospect fills at home gives the firm clean names for the conflict check before any work starts, and it replaces notes taken on a phone call. Global tools sell this (Clio Grow, KNOWLEDGE-48d74715); for a small Indian firm the new part is that the intake feeds a conflict check tolerant of Indian name variants, and the consent notice is recorded for the DPDP Act.
+
+Feasibility in the existing code: Feasible with one new kind of public page. The one-time token pattern exists (user_tokens, src/app/invite/[token], sha256 of the token stored, expiry and used-at); sendEmail exists (src/lib/email.ts); client and matter creation exist (src/app/actions/practice.ts); the conflict check is Feature 15 (build this one after it). New: an intake_links and intake_items pair of tables, a public route that must be exempt from the signed-in session rule in src/proxy.ts and must be rate-limited, and a retention job. The first release has no file upload from the prospect, because an unauthenticated upload needs scanning and abuse controls that are not in the stack. Whether a private link sent to someone who already contacted the firm sits comfortably with Bar Council of India Rule 36 (no advertising or soliciting), and what consent wording the DPDP Act needs, need a lawyer's confirmation (ASSUMPTION-62035a71).
+
+Functional requirements
+
+- FR-112: A staff member creates an intake link for a named prospect: single-use, unguessable, expiring (default 7 days), revocable, stored only as a hash, and carrying no firm data other than the firm's name and the form. Staff can send it by email through the firm's address or copy it; the system never sends it on its own.
+- FR-113: The form is built from a fixed set of fields the firm admin switches on or off (name, individual or company, contact details, opposing parties and their counsel if known, a short summary, key dates with a label, preferred language). It shows the firm's consent notice before the fields; the notice text, version and the time of agreement are stored with the submission, and a form cannot be submitted without agreeing.
+- FR-114: A submission is stored in an intake inbox as an item with its own firm_id; it does not create a client, matter, task or event. The inbox is visible to firm admins and to the staff member who created the link.
+- FR-115: On submission, run the Feature 15 conflict check over the submitted names automatically and attach the result to the item; the admin resolves hits as in FR-85, and an item with an unresolved hit cannot be converted.
+- FR-116: Converting an item to a client and matter is a staff action (FR-51): the staff member reviews and edits the pre-filled fields and confirms; declining an item sends nothing to the prospect, and any reply is written by a person.
+- FR-117: The public endpoint is rate-limited per address and per link, accepts only the form's fields within fixed size limits, answers an invalid, expired, used and revoked link in the same way, and shows nothing about the firm's clients or other links. The submitted text is treated as untrusted input wherever it is displayed.
+- FR-118: Intake items that are not converted are deleted or anonymised after a configurable period (default 90 days) and the deletion is logged to activities; the firm admin can delete an item sooner.
+
+Non-functional requirements
+
+- NFR-38: The public form loads in under 2 seconds at the 95th percentile and works on a phone browser.
+- NFR-39: The public route reads and writes only intake_links and intake_items and cannot reach any other table; intake data is firm-scoped, redacted in logs, and the email provider is listed as a sub-processor in the ethical-wall receipt (FR-23).
+
+Acceptance criteria
+
+- AC-67: Submitting a valid link creates one inbox item and zero rows in clients and cases; reusing the link, an expired link and a revoked link all return the same generic message.
+- AC-68: A submission naming an opposing party that matches an earlier client's name as a close match shows the conflict hit on the item, and the item cannot be converted until a firm admin resolves it.
+- AC-69: A user in another firm, and a staff member who is neither admin nor the link's creator, cannot see the item; an unconverted item is gone after the retention period, in a test with a shortened period.
+
+Non-goals for this feature
+
+- Does not answer the prospect with AI, chat with them, or send them any message on its own.
+- Does not provide a public page, directory, lead list or marketing tool, and does not advertise the firm.
+- Does not take documents, signatures, engagement letters or payments from the prospect in the first release.
+- Does not decide whether the firm takes the matter.
+
+### Feature 20: Fee notes and GST invoices
+
+Turns approved time and agreed fees into an invoice the firm can issue. The user picks a matter and a period; LawAI drafts an invoice from approved time entries plus any fixed fee or expense lines added by hand, works out GST from the firm's and client's tax details (including the reverse-charge case that applies to many legal services supplied to businesses), and shows the working. A firm admin approves and issues it with a sequential number; nothing goes to the client until a person sends it. Receipts are recorded by hand and a statement of account shows fees billed, expenses, receipts and the balance for the matter. Users: firm admins and designated attorneys (approve and issue), attorneys (draft), the firm's accountant (reads an export). Why it matters: the owner reports that billing is manual, time is logged but never becomes a bill, and an invoice built from the matter's own approved time closes the loop that Feature 8 starts; it is also the clearest sign to an investor that the product sits in the firm's money flow, not just its files. Indian billing tools exist and are cheap (myBillBook from about Rs 399 a year, TallyPrime, LawSathi; vendor pages, KNOWLEDGE-48d74715), so the difference has to be the link to approved matter time, a tax rule table that knows how services by advocates are taxed, and the approval trail, and not the invoice form itself.
+
+Feasibility in the existing code: Feasible with new work, and it narrows a stated global non-goal, which needs the owner's approval (ASSUMPTION-194cb371). time_entries holds hours, billable flag, narrative, user and matter (src/db/schema.ts); firms, clients (clients.billing as free text) and users exist; reports compute hours (src/lib/queries/reports.ts); sendEmail exists. Gaps: there are no hourly rates, no invoice, line, receipt or tax tables, no GSTIN fields on firms or clients, and no tax-rule data. The tax rule table follows the Feature 2 and 14 pattern (versioned rules, citation, effective date, provenance, review mark) and must be reviewed by a chartered accountant before it is enabled (ASSUMPTION-194cb371). GST, e-invoicing and Bar Council fee rules are summarised from secondary sources and must be checked against the Acts, notifications and Rules (KNOWLEDGE-48d74715).
+
+Functional requirements
+
+- FR-119: Draft an invoice for a matter and period from time entries that are approved and billable (never from Feature 8 drafts that are still unapproved), priced at a rate set by a firm admin per person or per matter (new setting), plus fixed-fee, per-appearance, retainer and expense lines added by hand. Each line links to its source entries, and the draft shows totals before tax.
+- FR-120: Firm and client tax details (GSTIN where registered, state, registered or unregistered, business entity or not) drive tax by a pure function over a versioned, lawyer-and-accountant-reviewed rule table: tax split into CGST and SGST for supplies within the state and IGST across states; the reverse-charge case where the rule says the client pays, shown with the statement and no tax added; and the case where no tax applies. The invoice shows the rule, its citation and its version; an unreviewed rule is not offered; a missing client tax detail blocks issue and says which one is missing.
+- FR-121: Offer only these fee types: hourly, fixed, per appearance, retainer and expenses. No fee that depends on the outcome of the case or on a share of the recovery is offered (a Bar Council of India rule bars it, KNOWLEDGE-48d74715).
+- FR-122: A firm admin (or an attorney the admin designates) approves and issues the invoice, recording user and time (FR-51). On issue it gets the next number in a gapless sequence per financial year, becomes read-only, and is stored with its rule version; a draft or cancelled draft uses no number. A correction after issue is a credit note linked to the invoice.
+- FR-123: Issuing produces a PDF; sending it to the client by email is a separate, logged action by a person using the firm's address; nothing is sent automatically, and a reminder for an unpaid invoice is a task for staff, not a message to the client.
+- FR-124: Staff record receipts by hand (date, amount, mode, and whether it is fee money or expense money, per the client-money accounting duty in the Bar Council rules); marking an invoice paid is a person's action. A per-matter statement of account lists fees billed, expenses, receipts and the balance, and is exportable. LawAI never collects, holds or moves money.
+- FR-125: Export an invoice register as CSV for the firm's accountant: number, date, client, GSTIN, taxable value, each tax, reverse-charge flag, credit-note links and status.
+- FR-126: The firm may set an optional disclosure line printed on invoices (for example, that AI tools assisted drafting); LawAI asserts no legal requirement for it (ASSUMPTION-8ee6ad2f).
+
+Non-functional requirements
+
+- NFR-40: Totals, tax and rounding are computed by deterministic code with a fixed rounding rule; the same inputs and rule version always give the same invoice, and a test compares a set of hand-checked invoices.
+- NFR-41: Invoices, lines, receipts and tax details carry firm_id, are visible to firm admins and to attorneys staffed on the matter, are never visible to paralegals unless the admin allows it, and are never part of any client-visible record (RULE-4) until a person sends the PDF.
+
+Acceptance criteria
+
+- AC-70: For a business client of an advocates' firm, the invoice shows no tax added and the reverse-charge statement; for a client that is not a business entity, tax follows the reviewed rule, with CGST and SGST for a client in the same state and IGST for another state, each matching a hand-checked value.
+- AC-71: Two issued invoices in one financial year have consecutive numbers; a cancelled draft consumes no number; an issued invoice cannot be edited, and a credit note is the only correction.
+- AC-72: Time entries not approved, and drafts from Feature 8 awaiting approval, never appear on a draft invoice; a draft invoice writes no number, no sent email and no client-visible record until a person issues and sends it.
+- AC-73: The fee-type list contains no outcome-based option; a user not staffed on the matter, and a user in another firm, cannot see its invoices; the register export matches the issued invoices.
+
+Non-goals for this feature
+
+- Does not collect payments, hold client money, connect to payment gateways or bank accounts, or reconcile bank statements.
+- Does not generate e-invoice IRNs, file GST returns, handle TDS, or give tax advice; the firm's accountant remains responsible.
+- Does not offer outcome-based fees, and does not set the firm's rates or fees.
+- Does not send invoices or reminders on its own.
+
+### Feature 21: Version compare and counterparty redline
+
+Shows exactly what changed between two versions of a document, or between the firm's last version and a draft that comes back from the other side. The comparison is done by code on the stored text, so it never misses a changed word and never invents one. Changes are grouped by clause. Each change that touches one of the firm's playbook rules is flagged with the rule and the exact words. The lawyer accepts or rejects change by change, which produces a new version through the existing version flow, and can export the redline as a PDF. Users: attorneys and paralegals negotiating or amending documents. Why it matters: when the other side returns a draft, the first job is to find what they changed, including the quiet edits; doing that by eye on a 40-page agreement is slow and risky, and Word's compare works on files, not on the firm's matter, versions and rules. Tying the comparison to the playbook is what turns it from a diff into a negotiation tool, and it makes the existing review feature earn its place on every round.
+
+Feasibility in the existing code: Feasible, and small. document_versions keeps the full text of every version and the restore flow exists (src/db/schema.ts, src/app/actions/documents.ts); the playbook check and its verbatim quote test exist (ai/lawai_ai/review.py, playbook_rules, document_issues); an uploaded Word or text file is parsed by ai/lawai_ai/rag/parse.py. New: a word-level text diff (a standard library or short routine, no model), clause grouping by headings and numbering, a merge step for accepted changes, and a PDF render of the redline (shared with Feature 10 when it exists). Clause grouping on real documents is unmeasured (ASSUMPTION-174e44f9); a scanned counterparty draft cannot be compared until Feature 7 exists, and Word tracked-changes export is not promised in the first release.
+
+Functional requirements
+
+- FR-127: A user can compare any two versions of a document they can access, or upload a counterparty draft, which is stored as a new version labelled with its source, and compare it with a chosen earlier version; both versions must belong to matters the user is staffed on.
+- FR-128: The difference is computed by code at word level from the stored text, shown as insertions and deletions with the clause heading or number and the page or paragraph; identical text produces no change, and moved text is shown as a deletion and an insertion.
+- FR-129: Changes are grouped by clause and counted; the view lets the user filter to changes that touch playbook rules.
+- FR-130: For each changed clause, run the playbook check (review.py) on the changed text only and flag any change that breaks or relaxes an active rule, showing the rule and the verbatim quote; a flag whose quote is not found in the changed text is not shown.
+- FR-131: A plain-language note per change may be generated on request; it is labelled as an AI draft, links to the changed text, and is omitted if it does not (RULE-8).
+- FR-132: The user accepts or rejects each change; accepting a set creates a new version through the existing version flow with the accepted changes applied; the redline can be exported as a PDF showing insertions and deletions, and every run, acceptance and export is logged to activities. Nothing is sent to the other side.
+
+Non-functional requirements
+
+- NFR-42: Comparing two 100-page documents completes in under 10 seconds excluding optional notes and playbook checks.
+- NFR-43: Comparison and flags read only documents inside the requesting user's firm and staffed matters; the uploaded counterparty draft is ingested like any upload and obeys the same size and type limits.
+
+Acceptance criteria
+
+- AC-74: Given two versions of a 20-page agreement that differ by one changed word and one deleted sentence, the comparison shows exactly those two changes with their clause references and no others.
+- AC-75: A changed payment-terms clause that breaks an active playbook rule is flagged with that rule and a verbatim quote; a change that touches no rule is not flagged.
+- AC-76: Accepting two of three changes produces a new version containing exactly those two; a user not staffed on the matter cannot compare its versions.
+
+Non-goals for this feature
+
+- Does not send a redline to the other side, negotiate, or advise which change to accept.
+- Does not compare scanned images before Feature 7, and does not promise a Word plug-in or Word tracked-changes export in the first release.
+- Does not judge the legal effect of a change; flags show what the firm's own rules say.
+
 ### Cross-cutting requirements
 
 - FR-51: Every AI output that leaves the firm or changes a calendar, task, time entry, client-visible record or bill requires an explicit human approval action recorded with user and time (INVARIANT-0e524254).
@@ -558,7 +739,7 @@ All AC-* items appear inside the feature groups above and in the cross-cutting g
 
 ## Build order
 
-Features 1 to 10 were ordered by the product owner on 2026-10-19 (DECISION-8949e592). Rationale: trust first, then the local moat, then workflows that reuse those foundations, with the heaviest ML/OCR work last. Features 11 to 16 were added on 2026-10-19 and slotted in without changing the relative order of the original ten (DECISION-bd89e06d, DECISION-27fee276); the owner can reorder them. Feature numbers and requirement IDs keep their original labels; this is the delivery order.
+Features 1 to 10 were ordered by the product owner on 2026-10-19 (DECISION-8949e592). Rationale: trust first, then the local moat, then workflows that reuse those foundations, with the heaviest ML/OCR work last. Features 11 to 16 were added on 2026-10-19 and slotted in without changing the relative order of the original ten (DECISION-bd89e06d, DECISION-27fee276). Features 17 to 21 were added on 2026-10-19 and slotted in the same way (DECISION-27781608); the relative order of Features 1 to 16 is unchanged, and the owner can reorder any of them. Feature numbers and requirement IDs keep their original labels; this is the delivery order.
 
 1. Feature 1: Cite-Proof ledger
 2. Feature 11: Hearing reminders. Placed right after the Cite-Proof ledger because it is the cheapest feature in the specification (the hearing data, in-app notifications and email sending already exist, see Feature 11), it is a daily-use hook that gets the product opened every evening, it creates the scheduler, delivery log and channel preferences that Features 12, 16 and 4 reuse, and it does not depend on Feature 2 or 3. WhatsApp and SMS provider approvals have unknown lead time, so start that paperwork at the beginning of the build; the first release can ship in-app and email while approvals are pending.
@@ -567,15 +748,20 @@ Features 1 to 10 were ordered by the product owner on 2026-10-19 (DECISION-8949e
 5. Feature 12: Court-date watch (needs Feature 11 for alerts and Feature 3's proposal-and-confirm mechanism)
 6. Feature 4: Hearing-day brief
 7. Feature 13: Order and adjournment ledger (extends Feature 3's extraction; feeds the "last order" in Feature 4)
-8. Feature 8: AI time capture
-9. Feature 5: Ethical-wall receipts
-10. Feature 15: Conflict check at intake (after Feature 5, because it adds a narrow, logged exception to the matter filter that the access log should record)
-11. Feature 9: Client status portal
-12. Feature 16: Client updates on WhatsApp (needs Feature 9's approved updates and Feature 11's channels and delivery log)
-13. Feature 10: Courtroom-ready export
-14. Feature 14: Court-fee and stamp-duty calculator (needs Feature 2's pack format; sits beside filing-time work)
-15. Feature 6: Firm-memory playbooks
-16. Feature 7: Hindi/English documents
+8. Feature 17: Notice and court-paper templates. Needs the pack format, statute library and limitation rules from Feature 2, the proposal path from Feature 3 and the labels from Feature 1, so it cannot come earlier; placed after the court-date work so the daily litigation loop (reminders, watch, brief, ledger) lands first, and before the billing work because it is the quickest way to show a litigation firm the India pack doing paid-for work. Start the lawyer review of the starter templates and the Section 138 rules while Feature 2 is being built.
+9. Feature 8: AI time capture
+10. Feature 20: Fee notes and GST invoices. Placed right after Feature 8 because an invoice is only as good as the approved time under it, and Feature 8 is what makes approved time complete. Needs the owner's approval of the narrowed billing non-goal (ASSUMPTION-194cb371) and an accountant's review of the tax rule table, which should start early because it runs in parallel with the build.
+11. Feature 5: Ethical-wall receipts
+12. Feature 15: Conflict check at intake (after Feature 5, because it adds a narrow, logged exception to the matter filter that the access log should record)
+13. Feature 19: Client intake link. Needs Feature 15 (its names are checked the moment a form arrives) and Feature 5 (its logging), so it follows them directly; it is the first feature with a public page, so it also carries the rate-limiting and input-handling work.
+14. Feature 9: Client status portal
+15. Feature 16: Client updates on WhatsApp (needs Feature 9's approved updates and Feature 11's channels and delivery log)
+16. Feature 10: Courtroom-ready export
+17. Feature 21: Version compare and counterparty redline. A small build with no heavy dependency; placed after Feature 10 so it can reuse the PDF and DOCX rendering. If the owner wants a quick win earlier, it can move up without breaking anything.
+18. Feature 14: Court-fee and stamp-duty calculator (needs Feature 2's pack format; sits beside filing-time work)
+19. Feature 18: Firm precedent bank. Placed with the firm-learning features: it shares the approval-queue pattern with Feature 6, and it is more useful once drafting, Cite-Proof labels and the court export exist, because that is when firms start asking to reuse their best drafts.
+20. Feature 6: Firm-memory playbooks
+21. Feature 7: Hindi/English documents
 
 ## Constraints
 
@@ -583,14 +769,14 @@ Features 1 to 10 were ordered by the product owner on 2026-10-19 (DECISION-8949e
 - India first, not India only: legal content, holidays and statutes come from free official government sources whose provenance and licence are recorded, behind a country-pluggable pack format (Feature 2).
 - DPDP Act 2023 applies to client personal data; model providers that process content must be disclosed in the ethical-wall receipt.
 - This phase is specification only: no product code, plan or tasks until the user approves the specification and plan.
-- Messages to people outside the firm (Features 11 and 16) go through third-party providers (email, WhatsApp Business, SMS); each provider is disclosed as a sub-processor in the ethical-wall receipt and keys come from environment variables only.
+- Messages to people outside the firm (Features 11, 16 and 20) and the intake link email (Feature 19) go through third-party providers (email, WhatsApp Business, SMS); each provider is disclosed as a sub-processor in the ethical-wall receipt and keys come from environment variables only.
 - Process rules: see RULE-5, RULE-6, RULE-7.
 
 ## Non-goals
 
 - No legal advice, outcome prediction or court filing.
 - No certification that cited authority is good law.
-- No client-facing AI chat, billing, invoicing or payments.
+- No client-facing AI chat and no payments. Invoicing is limited to draft-and-approve fee invoices and manual receipts (Feature 20, pending the owner's approval, ASSUMPTION-194cb371); LawAI does not collect or hold money, generate e-invoice numbers or file GST returns.
 - No model fine-tuning on client data.
 - Shipping packs for countries other than India, and languages other than Hindi and English, are out of scope for this release (the pack format itself is in scope).
 
@@ -600,7 +786,12 @@ Features 1 to 10 were ordered by the product owner on 2026-10-19 (DECISION-8949e
 - Hindi OCR and retrieval quality may be insufficient: mitigated by confidence flags, user correction and a measured acceptance threshold before commitment.
 - Over-reliance on Verified labels: mitigated by plain wording that the label means existence and quote match only.
 - Portal data leakage: mitigated by a separate read model and approval-state filter (Feature 9).
-- Scope: sixteen features are large; mitigated by the fixed build order below, and by the fact that Features 11 and 13 to 16 reuse existing tables and earlier features.
+- Scope: twenty-one features are large; mitigated by the fixed build order below, and by the fact that Features 11 and 13 to 21 reuse existing tables and earlier features.
+- Template and Section 138 accuracy (Feature 17): a wrong period or a wrong form could cost a client a case; mitigated by lawyer review before a template or rule is enabled, citations and rule versions on every computed date, and a human approval before a paper is final (ASSUMPTION-6658a5ec).
+- GST and fee-rule accuracy (Feature 20): a wrong tax treatment affects the firm's filings; mitigated by accountant review of the rule table, shown working, sequential locked numbering and no outcome-based fee type (ASSUMPTION-194cb371).
+- Precedent leakage (Feature 18): a precedent that still carries a client's details would break confidentiality across matters; mitigated by a separate sanitised copy, a deterministic name check, a named approver and use logging (ASSUMPTION-cbb34f30).
+- Public intake page (Feature 19): the first unauthenticated write path; mitigated by single-use hashed links, rate limits, fixed fields, no uploads, same response for every bad link and a retention limit; advertising rules and consent wording need a lawyer's check (ASSUMPTION-62035a71).
+- Redline quality (Feature 21): clause grouping on real contracts is unmeasured (ASSUMPTION-174e44f9); the word-level difference itself is exact because code computes it.
 - Court data access (Feature 12): no official eCourts API was found and automated reading may be refused or break; mitigated by manual import, cause-list files and written permission before automation (ASSUMPTION-8c002900).
 - Messaging approvals and cost (Features 11 and 16): WhatsApp template approval, SMS registration and per-message cost are unvalidated (ASSUMPTION-b89d9a49, ASSUMPTION-3f41aff2); mitigated by shipping in-app and email first.
 - Wrong or late reminder (Feature 11): a wrong time or place is worse than none; mitigated by building reminders from the hearing record only, showing the time zone, re-sending on change and recording delivery status.
@@ -617,3 +808,7 @@ Answered on 2026-10-19 (objective, legal data source, approver, build order, cou
 - Conflict check: does the owner approve the narrow exception to the within-firm matter filter described in Feature 15?
 - Court-date watch: which sources are acceptable for each court, and who asks the e-Committee or NIC about permitted access?
 - Which states come first for the court-fee and stamp-duty packs (suggested: Delhi and Maharashtra, matching the court profiles)?
+- Does the owner approve narrowing the billing non-goal so Feature 20 can issue invoices (ASSUMPTION-194cb371)?
+- Who reviews the Feature 17 starter templates and Section 138 rules, and the Feature 20 tax rule table (a lawyer and a chartered accountant), and by when (ASSUMPTION-6658a5ec, ASSUMPTION-194cb371)?
+- Feature 19: may a private link be sent to a prospect under the Bar Council advertising rule, and what consent notice wording is required (ASSUMPTION-62035a71)?
+- Deferred ideas to revisit: matter-closure checklist with retention archive (once retention periods are set), multi-document review grid, e-signature handoff, judgment summariser (DECISION-27781608).
